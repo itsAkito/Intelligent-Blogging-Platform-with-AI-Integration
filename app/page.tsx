@@ -109,7 +109,7 @@ export default function Home() {
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild className="px-8 py-3.5 h-auto bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">
-                <Link href="/auth?mode=signup">Get Started Free</Link>
+                <Link href="/pricing">Get Started Free</Link>
               </Button>
               <Button asChild variant="outline" className="px-8 py-3.5 h-auto font-bold rounded-xl">
                 <Link href="/community">Join Community</Link>
@@ -298,7 +298,7 @@ export default function Home() {
                 </div>
 
                 <Button asChild variant="outline" className="mt-8 px-8 py-3.5 h-auto border-primary text-primary font-bold rounded-xl hover:bg-primary/10">
-                  <Link href="/auth?mode=signup">Join the Inner Circle</Link>
+                  <Link href="/inner-circle">Join the Inner Circle</Link>
                 </Button>
               </div>
 

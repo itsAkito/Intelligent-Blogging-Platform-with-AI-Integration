@@ -78,14 +78,15 @@ function AuthContent() {
       const data = await res.json();
       if (res.ok) {
         setOtpSuccess("Verified! Redirecting...");
-        // Store OTP session in localStorage
-        localStorage.setItem("otp_user", JSON.stringify(data.user));
-        setTimeout(() => router.push("/dashboard"), 1000);
+        // Session is now stored in database with httpOnly cookie
+        // AuthContext will load user on next page render
+        setTimeout(() => router.push("/"), 1000);
       } else {
         setOtpError(data.error || "Invalid code.");
       }
-    } catch {
-      setOtpError("Verification failed.");
+    } catch (error) {
+      console.error("OTP verification error:", error instanceof Error ? error.message : String(error));
+      setOtpError("Verification failed. Please try again.");
     } finally {
       setOtpLoading(false);
     }
@@ -212,11 +213,16 @@ function AuthContent() {
                   <h3 className="text-xl font-bold text-on-surface">
                     {otpStep === "email" ? "Sign in with Email OTP" : "Enter Verification Code"}
                   </h3>
-                  <p className="text-sm text-on-surface-variant mt-1">
-                    {otpStep === "email"
-                      ? "We'll send a 6-digit code to your email"
-                      : <>Code sent to <Badge variant="secondary" className="font-mono">{otpEmail}</Badge></>}
-                  </p>
+                  {otpStep === "email" ? (
+                    <p className="text-sm text-on-surface-variant mt-1">
+                      We'll send a 6-digit code to your email
+                    </p>
+                  ) : (
+                    <div className="text-sm text-on-surface-variant mt-1 flex items-center justify-center gap-2">
+                      <span>Code sent to</span>
+                      <Badge variant="secondary" className="font-mono">{otpEmail}</Badge>
+                    </div>
+                  )}
                 </div>
 
                 {otpError && (

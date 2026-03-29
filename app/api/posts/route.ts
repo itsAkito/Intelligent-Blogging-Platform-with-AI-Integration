@@ -77,14 +77,32 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const supabase = await createClient();
+    const body = await request.json();
+    const { title, content, excerpt, image_url, cover_image_url, published, ai_generated, aiGenerated, topic, status, userId: bodyUserId } = body;
+
+    // Get user ID from either Clerk auth or OTP session
+    let userId = bodyUserId;
+    
+    // Try Clerk auth first
+    const clerkAuth = await auth();
+    if (clerkAuth.userId) {
+      userId = clerkAuth.userId;
+    } else {
+      // Check for OTP session
+      const otpSession = request.cookies.get("otp_session");
+      if (!otpSession?.value && !bodyUserId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      // For OTP users, userId should be in the bodyUserId or we extract from the profile
+      if (!userId) {
+        return NextResponse.json({ error: 'Unauthorized - userId required' }, { status: 401 });
+      }
+    }
+
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const supabase = await createClient();
-
-    const body = await request.json();
-    const { title, content, excerpt, image_url, cover_image_url, published, ai_generated, aiGenerated, topic, status } = body;
 
     if (!title || !content) {
       return NextResponse.json({ error: 'Title and content are required' }, { status: 400 });
@@ -115,7 +133,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error('Create post error:', error);
+      return NextResponse.json({ error: 'Failed to create post.' }, { status: 500 });
     }
 
     return NextResponse.json({ message: 'Post created successfully', post: data }, { status: 201 });

@@ -132,7 +132,6 @@ export default function MyPostsPage() {
               <div className="text-center py-16 glass-panel rounded-2xl">
                 <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-4">article</span>
                 <p className="text-on-surface-variant mb-4">No {activeTab} posts yet</p>
-                <Link href="/editor" className="text-primary font-bold text-sm hover:underline">Create a new post →</Link>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

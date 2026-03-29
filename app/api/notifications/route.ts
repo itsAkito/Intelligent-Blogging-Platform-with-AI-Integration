@@ -40,8 +40,67 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { userId, type, title, message, relatedUserId, relatedPostId } = await request.json();
+    const body = await request.json();
+    const { action, notificationId, userId, type, title, message, relatedUserId, relatedPostId } = body;
 
+    // Handle mark-read action
+    if (action === 'mark-read' && notificationId) {
+      const supabase = await createClient();
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq('id', notificationId)
+        .eq('user_id', authUserId);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
+      return NextResponse.json({ 
+        message: 'Notification marked as read',
+        success: true 
+      }, { status: 200 });
+    }
+
+    // Handle mark-all-read action
+    if (action === 'mark-all-read') {
+      const supabase = await createClient();
+      const { error } = await supabase
+        .from('notifications')
+        .update({ is_read: true, read_at: new Date().toISOString() })
+        .eq('user_id', authUserId)
+        .eq('is_read', false);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
+      return NextResponse.json({ 
+        message: 'All notifications marked as read',
+        success: true 
+      }, { status: 200 });
+    }
+
+    // Handle delete action
+    if (action === 'delete' && notificationId) {
+      const supabase = await createClient();
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId)
+        .eq('user_id', authUserId);
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+
+      return NextResponse.json({ 
+        message: 'Notification deleted',
+        success: true 
+      }, { status: 200 });
+    }
+
+    // Default: Create notification (internal API)
     if (!userId || !type || !title) {
       return NextResponse.json({ error: 'userId, type, and title are required' }, { status: 400 });
     }
@@ -66,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(notification![0], { status: 201 });
   } catch (error) {
-    console.error('Create notification error:', error);
+    console.error('Notification action error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -9,18 +9,32 @@ export async function GET(
   const { id } = await params;
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase
+    
+    // Check if id looks like a UUID (36 chars with dashes) or slug
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    
+    const query = supabase
       .from('posts')
-      .select('*, profiles(id, name, avatar_url)')
-      .eq('id', id)
-      .single();
+      .select('*, profiles(id, name, avatar_url)');
+    
+    if (isUUID) {
+      query.eq('id', id);
+    } else {
+      query.eq('slug', id);
+    }
+    
+    const { data, error } = await query.single();
 
     if (error) {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
-    // Increment views via RPC
-    await supabase.rpc('increment_post_views', { post_id: id });
+    // Increment views via RPC (fire-and-forget, don't block response)
+    try {
+      await supabase.rpc('increment_post_views', { post_id: data.id });
+    } catch (rpcError) {
+      console.warn(`Failed to increment views for post ${data.id}:`, rpcError);
+    }
 
     return NextResponse.json(data);
   } catch (error) {
@@ -35,13 +49,26 @@ export async function PUT(
 ) {
   const { id } = await params;
   try {
-    const { userId } = await auth();
+    const body = await _request.json();
+    let userId = body.userId;
+    
+    const clerkAuth = await auth();
+    if (clerkAuth.userId) {
+      userId = clerkAuth.userId;
+    } else {
+      const otpSession = _request.cookies.get("otp_session");
+      if (!otpSession?.value && !userId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      if (!userId) {
+        return NextResponse.json({ error: 'Unauthorized - userId required' }, { status: 401 });
+      }
+    }
+    
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const supabase = await createClient();
-
-    const body = await _request.json();
     const { title, content, excerpt, image_url, cover_image_url, published, status, topic } = body;
 
     const updateData: Record<string, any> = {};
@@ -64,7 +91,8 @@ export async function PUT(
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error('Update post error:', error);
+      return NextResponse.json({ error: 'Failed to update post.' }, { status: 500 });
     }
 
     return NextResponse.json({ message: 'Post updated successfully', post: data });
@@ -80,7 +108,22 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const { userId } = await auth();
+    const body = await _request.json();
+    let userId = body.userId;
+    
+    const clerkAuth = await auth();
+    if (clerkAuth.userId) {
+      userId = clerkAuth.userId;
+    } else {
+      const otpSession = _request.cookies.get("otp_session");
+      if (!otpSession?.value && !userId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      if (!userId) {
+        return NextResponse.json({ error: 'Unauthorized - userId required' }, { status: 401 });
+      }
+    }
+    
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -89,7 +132,8 @@ export async function DELETE(
     const { error } = await supabase.from('posts').delete().eq('id', id);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      console.error('Delete post error:', error);
+      return NextResponse.json({ error: 'Failed to delete post.' }, { status: 500 });
     }
 
     return NextResponse.json({ message: 'Post deleted successfully' });

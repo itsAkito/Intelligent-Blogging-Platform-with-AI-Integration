@@ -47,7 +47,9 @@ export default function DashboardPage() {
       }
 
       if (statsRes.ok) {
-        const { stats } = await statsRes.json();
+        const data = await statsRes.json();
+        console.log('User stats response:', data);
+        const { stats } = data;
         setStatistics({
           totalViews: stats.totalViews || 0,
           engagementRate: stats.engagementRate || 0,
@@ -85,7 +87,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex gap-3">
                 <Link href="/editor">
-                  <Button className="bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed rounded-lg font-bold text-sm gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">
+                  <Button className="bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-lg font-bold text-sm gap-2 shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">
                     <span className="material-symbols-outlined text-sm">edit_note</span>
                     Draft Post
                   </Button>
@@ -136,7 +138,7 @@ export default function DashboardPage() {
                       <span>Reach</span><span>92%</span>
                     </div>
                     <div className="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
-                      <div className="h-full bg-gradient-to-r from-secondary to-tertiary rounded-full transition-all" style={{ width: "92%" }} />
+                      <div className="h-full bg-linear-to-r from-secondary to-tertiary rounded-full transition-all" style={{ width: "92%" }} />
                     </div>
                   </div>
                 </CardContent>
@@ -261,7 +263,7 @@ export default function DashboardPage() {
                             <span>71%</span><span>360K / 500K</span>
                           </div>
                           <div className="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-primary to-primary-container rounded-full" style={{ width: "71%" }} />
+                            <div className="h-full bg-linear-to-r from-primary to-primary-container rounded-full" style={{ width: "71%" }} />
                           </div>
                         </div>
                       </div>
@@ -282,7 +284,7 @@ export default function DashboardPage() {
                 </Card>
 
                 {/* AI Tip */}
-                <Card className="bg-gradient-to-br from-secondary/5 to-tertiary/5 border-secondary/10 rounded-2xl overflow-hidden relative group">
+                <Card className="bg-linear-to-br from-secondary/5 to-tertiary/5 border-secondary/10 rounded-2xl overflow-hidden relative group">
                   <div className="absolute -right-6 -top-6 w-24 h-24 bg-secondary/10 blur-3xl group-hover:bg-secondary/15 transition-all duration-500" />
                   <CardContent className="p-5 relative">
                     <div className="flex items-center gap-2 mb-3">

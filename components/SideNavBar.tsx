@@ -5,19 +5,27 @@ import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { useRouter } from "next/navigation";
 
 interface SideNavBarProps {
   activePage?: string;
 }
 
 export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push("/auth");
+  };
 
   const navItems = [
-    { id: "home", label: "Home", icon: "home", href: "/dashboard" },
-    { id: "posts", label: "My Posts", icon: "article", href: "/dashboard/posts" },
-    { id: "career", label: "Career Track", icon: "timeline", href: "/dashboard/career" },
-    { id: "insights", label: "Insights", icon: "auto_awesome", href: "/dashboard/insights" },
+    { id: "community", label: "Community", icon: "people", href: "/community" },
+    { id: "jobs", label: "Jobs", icon: "work", href: "/jobs" },
+    { id: "home", label: "Career Hub", icon: "trending_up", href: "/dashboard/career" },
+    { id: "inner-circle", label: "Inner Circle", icon: "star", href: "/inner-circle" },
+    { id: "resume", label: "Resume Builder", icon: "description", href: "/dashboard/resume" },
     { id: "settings", label: "Settings", icon: "settings", href: "/dashboard/settings" },
   ];
 
@@ -64,14 +72,16 @@ export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
         ))}
       </nav>
 
-      {/* Create Post Button */}
-      <div className="px-4 mt-auto">
-        <Link href="/editor">
-          <Button className="w-full bg-gradient-to-br from-primary to-primary-container text-on-primary-fixed py-3 h-auto rounded-lg font-bold text-xs uppercase tracking-widest gap-2 active:scale-95 transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-primary/20">
-            <span className="material-symbols-outlined text-sm">add</span>
-            Create New Post
-          </Button>
-        </Link>
+      {/* Bottom Actions */}
+      <div className="px-4 mt-auto space-y-2">
+        <Button
+          onClick={handleLogout}
+          variant="outline"
+          className="w-full border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400 py-3 h-auto rounded-lg font-bold text-xs uppercase tracking-widest gap-2 active:scale-95 transition-all"
+        >
+          <span className="material-symbols-outlined text-sm">logout</span>
+          Logout
+        </Button>
       </div>
     </aside>
   );

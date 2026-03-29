@@ -83,13 +83,35 @@ export default function BlogPostPage() {
   }, [fetchComments]);
 
   const handleLike = async () => {
-    if (!user || !post) return;
+    if (!post) return;
+    if (!user) {
+      alert("Please sign in to like this post");
+      return;
+    }
     try {
-      // Toggle like via RPC (defined in migration)
-      setLiked(!liked);
-      setPost({ ...post, likes_count: liked ? post.likes_count - 1 : post.likes_count + 1 });
+      if (liked) {
+        // Unlike
+        const res = await fetch(`/api/likes?post_id=${post.id}`, { method: "DELETE" });
+        if (res.ok) {
+          setLiked(false);
+          setPost({ ...post, likes_count: Math.max(0, post.likes_count - 1) });
+        }
+      } else {
+        // Like
+        const res = await fetch("/api/likes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ postId: post.id }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setLiked(true);
+          setPost({ ...post, likes_count: post.likes_count + 1 });
+        }
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Error toggling like:", err);
+      alert("Failed to toggle like. Please try again.");
     }
   };
 
@@ -97,6 +119,10 @@ export default function BlogPostPage() {
     e.preventDefault();
     if (!commentContent.trim()) return;
     if (!user && (!guestName.trim() || !guestEmail.trim())) return;
+    if (!post?.id) {
+      alert("Post is still loading. Please wait.");
+      return;
+    }
 
     setSubmittingComment(true);
     try {
@@ -104,7 +130,7 @@ export default function BlogPostPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          postId: post?.id,
+          postId: post.id,
           content: commentContent,
           guestName: user ? undefined : guestName,
           guestEmail: user ? undefined : guestEmail,
@@ -117,9 +143,26 @@ export default function BlogPostPage() {
         setCommentContent("");
         setCommentSuccess("Comment posted!");
         setTimeout(() => setCommentSuccess(""), 3000);
+      } else {
+        let errorMessage = "Unknown error";
+        try {
+          const errorData = await res.json();
+          console.error("Comment error response:", errorData);
+          errorMessage = errorData.error || errorData.message || `Server error (${res.status})`;
+          if (errorData.details) {
+            console.error("Error details:", errorData.details);
+          }
+        } catch (parseError) {
+          console.error("Failed to parse error response:", parseError);
+          console.error("Raw response status:", res.status);
+          console.error("Raw response headers:", Object.fromEntries(res.headers.entries()));
+          errorMessage = `Server error (${res.status}): Unable to parse error response`;
+        }
+        alert(`Failed to post comment: ${errorMessage}`);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Comment submission error:", err);
+      alert("Failed to post comment. Please try again.");
     } finally {
       setSubmittingComment(false);
     }
@@ -166,7 +209,7 @@ export default function BlogPostPage() {
         {/* Cover Image */}
         {post.cover_image_url && (
           <div className="w-full h-[400px] relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background z-10"></div>
+            <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-background z-10"></div>
             <img src={post.cover_image_url} alt={post.title} className="w-full h-full object-cover" />
           </div>
         )}
@@ -285,10 +328,10 @@ export default function BlogPostPage() {
                   </span>
                   <button
                     type="submit"
-                    disabled={submittingComment}
-                    className="px-6 py-2.5 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-lg text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+                    disabled={submittingComment || loading || !post?.id}
+                    className="px-6 py-2.5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-lg text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
                   >
-                    {submittingComment ? "Posting..." : "Post Comment"}
+                    {submittingComment ? "Posting..." : loading || !post?.id ? "Loading..." : "Post Comment"}
                   </button>
                 </div>
                 {commentSuccess && (

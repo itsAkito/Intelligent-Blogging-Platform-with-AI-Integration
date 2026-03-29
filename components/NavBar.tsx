@@ -5,25 +5,30 @@ import { UserButton } from "@clerk/nextjs";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import NotificationsDropdown from "@/components/NotificationsDropdown";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
 
 export default function Navbar() {
-  const { isAdmin, isAuthenticated } = useAuth();
+  const { isAdmin, isAuthenticated, profile, user, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
 
-  const handleProtectedNav = (e: React.MouseEvent, _path: string) => {
-    if (!isAuthenticated) {
-      e.preventDefault();
-      setShowLoginPopup(true);
-    }
-  };
+  // Determine if user is OTP-based (authenticated but not a Clerk user)
+  const isOtpUser = isAuthenticated && !user?.id?.startsWith("user_");
 
   return (
     <>
       <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/60 backdrop-blur-xl shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] font-headline">
-        <nav className="flex justify-between items-center px-6 lg:px-12 h-16 w-full max-w-[1400px] mx-auto">
+        <nav className="flex justify-between items-center px-6 lg:px-12 h-16 w-full max-w-350 mx-auto">
           <div className="flex items-center gap-8">
-            <Link href="/" className="text-xl font-bold tracking-tighter bg-gradient-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent">
+            <Link href="/" className="text-xl font-bold tracking-tighter bg-linear-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent">
               AiBlog
             </Link>
             <div className="hidden md:flex gap-6 text-sm">
@@ -31,14 +36,15 @@ export default function Navbar() {
                 <>
                   <Link href="/dashboard" className="text-zinc-400 hover:text-primary transition-colors font-medium">Dashboard</Link>
                   <Link href="/community" className="text-zinc-400 hover:text-primary transition-colors font-medium">Community</Link>
-                  <Link href="/editor" className="text-zinc-400 hover:text-primary transition-colors font-medium">Editor</Link>
+                  <Link href="/editor" className="text-zinc-400 hover:text-primary transition-colors font-medium">Write</Link>
+                  <Link href="/careers" className="text-zinc-400 hover:text-primary transition-colors font-medium">Careers</Link>
                   <Link href="/dashboard/insights" className="text-zinc-400 hover:text-primary transition-colors font-medium">Analytics</Link>
                 </>
               ) : (
                 <>
-                  <Link href="/community" onClick={(e) => handleProtectedNav(e, "/community")} className="text-zinc-400 hover:text-primary transition-colors font-medium">Community</Link>
+                  <Link href="/" className="text-zinc-400 hover:text-primary transition-colors font-medium">About</Link>
+                  <Link href="/community" className="text-zinc-400 hover:text-primary transition-colors font-medium">Community</Link>
                   <Link href="/careers" className="text-zinc-400 hover:text-primary transition-colors font-medium">Careers</Link>
-                  <Link href="/about" className="text-zinc-400 hover:text-primary transition-colors font-medium">About</Link>
                 </>
               )}
             </div>
@@ -46,21 +52,74 @@ export default function Navbar() {
           <div className="flex items-center gap-4">
             {isAuthenticated ? (
               <>
+                <NotificationsDropdown />
+                
                 {isAdmin && (
                   <Link href="/admin" className="hidden sm:block text-sm font-semibold text-zinc-400 hover:text-white transition-colors">
                     Admin
                   </Link>
                 )}
-                <Link href="/dashboard" className="hidden sm:block text-zinc-400 hover:text-white transition-colors">
-                  <span className="material-symbols-outlined text-[20px]">notifications</span>
-                </Link>
-                <UserButton
-                  appearance={{
-                    elements: {
-                      avatarBox: "w-8 h-8",
-                    },
-                  }}
-                />
+                
+                {/* Show OTP User Profile or Clerk Profile */}
+                {isOtpUser && profile ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full overflow-hidden">
+                        {profile.avatar_url ? (
+                          <img 
+                            src={profile.avatar_url} 
+                            alt={profile.name} 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold">
+                            {profile.name?.[0]?.toUpperCase() || "U"}
+                          </div>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <div className="px-2 py-1.5">
+                        <p className="text-sm font-semibold text-white">{profile.name}</p>
+                        <p className="text-xs text-zinc-400">{profile.email}</p>
+                        {profile.role === "admin" && (
+                          <p className="text-xs text-blue-400 font-semibold mt-1">👑 Admin</p>
+                        )}
+                      </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard" className="cursor-pointer">
+                          Dashboard
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard/settings" className="cursor-pointer">
+                          Settings
+                        </Link>
+                      </DropdownMenuItem>
+                      {profile.role === "admin" && (
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin" className="cursor-pointer">
+                            Admin Panel
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={signOut} className="text-red-400 cursor-pointer">
+                        Sign Out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <UserButton
+                    appearance={{
+                      elements: {
+                        avatarBox: "w-8 h-8",
+                      },
+                    }}
+                  />
+                )}
+                
                 <Button asChild className="px-5 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
                   <Link href="/editor">Create Post</Link>
                 </Button>
@@ -71,7 +130,7 @@ export default function Navbar() {
                   <Link href="/auth">Login</Link>
                 </Button>
                 <Button asChild className="px-5 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
-                  <Link href="/auth?mode=signup">Get Started</Link>
+                  <Link href="/pricing">Get Started</Link>
                 </Button>
               </>
             )}
@@ -87,15 +146,27 @@ export default function Navbar() {
                 <Link href="/dashboard" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Dashboard</Link>
                 <Link href="/community" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Community</Link>
                 <Link href="/editor" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Editor</Link>
+                <Link href="/careers" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Careers</Link>
                 <Link href="/dashboard/insights" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Analytics</Link>
                 {isAdmin && <Link href="/admin" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Admin</Link>}
                 <Separator className="my-2" />
                 <div className="pt-2">
-                  <UserButton appearance={{ elements: { avatarBox: "w-8 h-8" } }} />
+                  {isOtpUser && profile ? (
+                    <Button 
+                      onClick={signOut}
+                      variant="ghost"
+                      className="w-full justify-start text-red-400 hover:text-red-300"
+                    >
+                      Sign Out
+                    </Button>
+                  ) : (
+                    <UserButton appearance={{ elements: { avatarBox: "w-8 h-8" } }} />
+                  )}
                 </div>
               </>
             ) : (
               <>
+                <Link href="/pricing" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Pricing</Link>
                 <Link href="/careers" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Careers</Link>
                 <Link href="/about" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>About</Link>
                 <Link href="/auth" className="block text-sm text-primary font-semibold" onClick={() => setMenuOpen(false)}>Login / Sign Up</Link>
@@ -107,7 +178,7 @@ export default function Navbar() {
 
       {/* Login Popup Modal */}
       {showLoginPopup && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowLoginPopup(false)}>
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowLoginPopup(false)}>
           <div className="relative bg-surface-container border border-outline-variant/20 rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl shadow-black/50" onClick={(e) => e.stopPropagation()}>
             <Button variant="ghost" size="icon" onClick={() => setShowLoginPopup(false)} className="absolute top-4 right-4 text-on-surface-variant hover:text-on-surface">
               <span className="material-symbols-outlined">close</span>

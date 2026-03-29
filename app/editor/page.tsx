@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 function EditorContent() {
   const router = useRouter();
@@ -24,21 +25,78 @@ function EditorContent() {
   const [excerpt, setExcerpt] = useState("");
   const [topic, setTopic] = useState("");
   const [tone, setTone] = useState("professional");
+  const [category, setCategory] = useState("Technology");
   const [loading, setLoading] = useState(false);
   const [generatingAI, setGeneratingAI] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [showAISidebar, setShowAISidebar] = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [imagePrompt, setImagePrompt] = useState("");
   const [generatingImage, setGeneratingImage] = useState(false);
   const [useAIImage, setUseAIImage] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [isAiGenerated, setIsAiGenerated] = useState(false);
+  const [showSlashCommand, setShowSlashCommand] = useState(false);
+  const [slashCommandPosition, setSlashCommandPosition] = useState({ top: 0, left: 0 });
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "/") {
+      const textarea = contentRef.current;
+      if (textarea) {
+        const { top, left } = textarea.getBoundingClientRect();
+        const start = textarea.selectionStart;
+        const text = textarea.value.substring(0, start);
+        const lines = text.split("\n");
+        const lastLine = lines[lines.length - 1];
+        const lastChar = lastLine.charAt(lastLine.length - 1);
+
+        if (lastChar === "/" || lastLine.length === 0) {
+            const cursorPosition = getCursorXY(textarea, start);
+            if (cursorPosition) {
+                setSlashCommandPosition({ top: cursorPosition.y + 20, left: cursorPosition.x });
+                setShowSlashCommand(true);
+            }
+        }
+      }
+    }
+  };
+  // a function to get the x and y of the cursor
+    const getCursorXY = (input: HTMLTextAreaElement, selectionPoint: number) => {
+        const { offsetLeft, offsetTop } = input;
+        const div = document.createElement("div");
+        const copyStyle = getComputedStyle(input);
+        for (const prop of copyStyle) {
+            div.style[prop as any] = copyStyle[prop as any];
+        }
+        div.style.whiteSpace = "pre-wrap";
+        div.style.position = "absolute";
+        div.style.visibility = "hidden";
+        div.style.overflow = "hidden";
+
+        const text = input.value.substring(0, selectionPoint);
+        div.textContent = text;
+        document.body.appendChild(div);
+
+        const span = document.createElement("span");
+        span.textContent = input.value.substring(selectionPoint) || ".";
+        div.appendChild(span);
+
+        const { offsetLeft: spanOffsetLeft, offsetTop: spanOffsetTop } = span;
+        document.body.removeChild(div);
+
+        return {
+            x: offsetLeft + spanOffsetLeft,
+            y: offsetTop + spanOffsetTop,
+        };
+    };
+
+
   // Markdown formatting helper
-  const insertFormat = (prefix: string, suffix: string = prefix) => {
+  const insertFormat = (prefix: string, suffix: string = "") => {
     const textarea = contentRef.current;
     if (!textarea) return;
     const start = textarea.selectionStart;
@@ -50,7 +108,7 @@ function EditorContent() {
       ? `${before}${prefix}${selected}${suffix}${after}`
       : `${before}${prefix}text${suffix}${after}`;
     setContent(formatted);
-    // Restore cursor position inside the formatting markers
+    // Restore cursor position
     setTimeout(() => {
       textarea.focus();
       const cursorPos = selected ? start + prefix.length + selected.length + suffix.length : start + prefix.length;
@@ -58,18 +116,44 @@ function EditorContent() {
     }, 0);
   };
 
-  const formatActions: { icon: string; label: string; action: () => void }[] = [
-    { icon: "format_bold", label: "Bold", action: () => insertFormat("**") },
-    { icon: "format_italic", label: "Italic", action: () => insertFormat("*") },
-    { icon: "format_strikethrough", label: "Strikethrough", action: () => insertFormat("~~") },
-    { icon: "format_list_bulleted", label: "Bullet List", action: () => insertFormat("\n- ", "") },
-    { icon: "format_list_numbered", label: "Numbered List", action: () => insertFormat("\n1. ", "") },
-    { icon: "format_quote", label: "Blockquote", action: () => insertFormat("\n> ", "") },
-    { icon: "code", label: "Inline Code", action: () => insertFormat("`") },
-    { icon: "code_blocks", label: "Code Block", action: () => insertFormat("\n```\n", "\n```\n") },
-    { icon: "title", label: "Heading", action: () => insertFormat("\n## ", "") },
-    { icon: "link", label: "Link", action: () => insertFormat("[", "](url)") },
-    { icon: "horizontal_rule", label: "Divider", action: () => insertFormat("\n\n---\n\n", "") },
+  const slashCommands = [
+    { label: "Heading 1", action: () => insertFormat("\n# ", "") },
+    { label: "Heading 2", action: () => insertFormat("\n## ", "") },
+    { label: "Bullet List", action: () => insertFormat("\n- ", "") },
+    { label: "Numbered List", action: () => insertFormat("\n1. ", "") },
+    { label: "Blockquote", action: () => insertFormat("\n> ", "") },
+    { label: "Code Block", action: () => insertFormat("\n```\n", "\n```\n") },
+    { label: "Image", action: () => insertFormat("![", "](url)") },
+  ];
+
+  const formatActions: {
+    type: "button" | "popover";
+    icon: string;
+    label: string;
+    action?: () => void;
+    items?: { label: string; action: () => void }[];
+  }[] = [
+    {
+      type: "popover",
+      icon: "format_h",
+      label: "Headings",
+      items: [
+        { label: "Heading 1", action: () => insertFormat("\n# ", "") },
+        { label: "Heading 2", action: () => insertFormat("\n## ", "") },
+        { label: "Heading 3", action: () => insertFormat("\n### ", "") },
+        { label: "Heading 4", action: () => insertFormat("\n#### ", "") },
+      ],
+    },
+    { type: "button", icon: "format_bold", label: "Bold", action: () => insertFormat("**", "**") },
+    { type: "button", icon: "format_italic", label: "Italic", action: () => insertFormat("*", "*") },
+    { type: "button", icon: "format_strikethrough", label: "Strikethrough", action: () => insertFormat("~~", "~~") },
+    { type: "button", icon: "format_list_bulleted", label: "Bullet List", action: () => insertFormat("\n- ", "") },
+    { type: "button", icon: "format_list_numbered", label: "Numbered List", action: () => insertFormat("\n1. ", "") },
+    { type: "button", icon: "format_quote", label: "Blockquote", action: () => insertFormat("\n> ", "") },
+    { type: "button", icon: "code", label: "Inline Code", action: () => insertFormat("`", "`") },
+    { type: "button", icon: "code_blocks", label: "Code Block", action: () => insertFormat("\n```\n", "\n```\n") },
+    { type: "button", icon: "link", label: "Link", action: () => insertFormat("[", "](url)") },
+    { type: "button", icon: "horizontal_rule", label: "Divider", action: () => insertFormat("\n\n---\n\n", "") },
   ];
 
   // Load existing post when editing
@@ -114,6 +198,7 @@ function EditorContent() {
       setContent(data.content || "");
       setTitle(data.title || "");
       setExcerpt(data.excerpt || "");
+      setIsAiGenerated(true);
       setSuccess("Content generated!");
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
@@ -208,6 +293,32 @@ function EditorContent() {
     }
   };
 
+  const [toneAnalysis, setToneAnalysis] = useState<string | null>(null);
+
+  const handleCheckTone = async () => {
+    if (!content.trim()) return;
+    setGeneratingAI(true);
+    try {
+      const response = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: `Analyze the tone of the following text and provide a brief analysis (e.g., formal, informal, confident, etc.):\n\n${content}`,
+          userId: user?.id,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setToneAnalysis(data.content);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Failed to analyze tone.");
+    } finally {
+      setGeneratingAI(false);
+    }
+  };
+
   const handlePublish = async () => {
     if (!user) { setError("You must be logged in."); return; }
     if (!title.trim() || !content.trim()) { setError("Title and content are required"); return; }
@@ -225,7 +336,7 @@ function EditorContent() {
           excerpt: excerpt || content.substring(0, 150),
           topic,
           cover_image_url: coverImageUrl || null,
-          ai_generated: false,
+          ai_generated: isAiGenerated,
           userId: user.id,
           published: true,
         }),
@@ -240,12 +351,61 @@ function EditorContent() {
     }
   };
 
+  // Auto-save draft every 30 seconds
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("unsaved");
+  
+  const saveDraft = useCallback(async () => {
+    if (!user || !title.trim()) return;
+    setSaveStatus("saving");
+    try {
+      const url = isEditing && editId ? `/api/posts/${editId}` : "/api/posts";
+      const method = isEditing && editId ? "PUT" : "POST";
+      const response = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          content,
+          excerpt: excerpt || content.substring(0, 150),
+          topic,
+          cover_image_url: coverImageUrl || null,
+          ai_generated: isAiGenerated,
+          userId: user.id,
+          published: false,
+          status: "draft",
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (isEditing === false && data.post?.id) {
+          router.replace(`/editor?id=${data.post.id}`);
+        }
+        setSaveStatus("saved");
+        setSuccess("Draft saved");
+        setTimeout(() => setSaveStatus("unsaved"), 3000);
+      }
+    } catch (err) {
+      setSaveStatus("unsaved");
+      console.error("Auto-save failed:", err);
+    }
+  }, [title, content, excerpt, topic, coverImageUrl, user, isEditing, editId, router]);
+
+  useEffect(() => {
+    const autoSaveTimer = setInterval(() => {
+      if (title.trim() && content.trim()) {
+        saveDraft();
+      }
+    }, 30000); // Auto-save every 30 seconds
+
+    return () => clearInterval(autoSaveTimer);
+  }, [saveDraft]);
+
   return (
     <ProtectedRoute>
       <Navbar />
       <div className="flex min-h-screen bg-background pt-16">
         {/* Main Editor */}
-        <div className={`flex-1 flex flex-col ${showAISidebar ? "lg:mr-80" : ""} transition-all`}>
+        <div className={`flex-1 flex flex-col ${showAISidebar ? "lg:mr-80" : ""} ${showPreview ? "lg:mr-96" : ""} transition-all`}>
           {/* Toolbar */}
           <div className="sticky top-16 z-30 bg-surface-container-low/80 backdrop-blur-xl border-b border-outline-variant/10 px-6 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -255,27 +415,76 @@ function EditorContent() {
               <Separator orientation="vertical" className="h-5" />
               <TooltipProvider delayDuration={300}>
                 <div className="flex gap-0.5 flex-wrap">
-                  {formatActions.map((action) => (
-                    <Tooltip key={action.icon}>
-                      <TooltipTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={action.action}
-                          className="h-8 w-8 text-on-surface-variant hover:text-on-surface"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">{action.icon}</span>
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="text-xs">{action.label}</TooltipContent>
-                    </Tooltip>
-                  ))}
+                  {formatActions.map((action) =>
+                    action.type === "popover" ? (
+                      <Popover key={action.icon}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-on-surface-variant hover:text-on-surface"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">{action.icon}</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-48">
+                          <div className="grid gap-2">
+                            {action.items?.map((item) => (
+                              <Button
+                                key={item.label}
+                                variant="ghost"
+                                onClick={item.action}
+                                className="justify-start"
+                              >
+                                {item.label}
+                              </Button>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    ) : (
+                      <Tooltip key={action.icon}>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={action.action}
+                            className="h-8 w-8 text-on-surface-variant hover:text-on-surface"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">{action.icon}</span>
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="text-xs">{action.label}</TooltipContent>
+                      </Tooltip>
+                    )
+                  )}
                 </div>
               </TooltipProvider>
             </div>
             <div className="flex items-center gap-3">
               <Badge variant="outline" className="text-xs text-on-surface-variant">{wordCount} words &bull; {readTime} min read</Badge>
+              {saveStatus === "saving" && (
+                <span className="text-xs text-yellow-400 flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></span>
+                  Saving...
+                </span>
+              )}
+              {saveStatus === "saved" && (
+                <span className="text-xs text-green-400 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm">check</span>
+                  Saved
+                </span>
+              )}
+              <Button
+                variant={showPreview ? "secondary" : "ghost"}
+                size="icon"
+                onClick={() => setShowPreview(!showPreview)}
+                className={showPreview ? "bg-primary/10 text-primary" : "text-on-surface-variant"}
+                title="Toggle Preview Mode"
+              >
+                <span className="material-symbols-outlined text-[18px]">visibility</span>
+              </Button>
               <Button
                 variant={showAISidebar ? "secondary" : "ghost"}
                 size="icon"
@@ -287,7 +496,7 @@ function EditorContent() {
               <Button
                 onClick={handlePublish}
                 disabled={loading}
-                className="bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
+                className="bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
               >
                 {loading ? "Publishing..." : isEditing ? "Update" : "Publish"}
               </Button>
@@ -340,9 +549,34 @@ function EditorContent() {
               ref={contentRef}
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Start writing your story... (Markdown supported: **bold**, *italic*, ## heading, etc.)"
               className="w-full flex-1 min-h-[60vh] bg-transparent text-on-surface placeholder:text-on-surface-variant/20 outline-none resize-none text-base leading-relaxed font-mono"
             />
+            {showSlashCommand && (
+                <Popover open={showSlashCommand} onOpenChange={setShowSlashCommand}>
+                    <PopoverTrigger asChild>
+                        <div style={{ top: slashCommandPosition.top, left: slashCommandPosition.left, position: 'absolute' }} />
+                    </PopoverTrigger>
+                    <PopoverContent className="w-48">
+                        <div className="grid gap-2">
+                        {slashCommands.map((command) => (
+                            <Button
+                            key={command.label}
+                            variant="ghost"
+                            onClick={() => {
+                                command.action();
+                                setShowSlashCommand(false);
+                            }}
+                            className="justify-start"
+                            >
+                            {command.label}
+                            </Button>
+                        ))}
+                        </div>
+                    </PopoverContent>
+                </Popover>
+            )}
           </div>
         </div>
 
@@ -380,12 +614,53 @@ function EditorContent() {
                     <span className="material-symbols-outlined text-secondary text-sm">summarize</span>
                     {generatingAI ? "Summarizing..." : "Summarize"}
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start gap-3 h-auto p-3">
+                  <Button
+                    variant="ghost"
+                    onClick={handleCheckTone}
+                    disabled={generatingAI}
+                    className="w-full justify-start gap-3 h-auto p-3"
+                  >
                     <span className="material-symbols-outlined text-tertiary text-sm">psychology</span>
-                    Check Tone
+                    {generatingAI ? "Analyzing..." : "Check Tone"}
                   </Button>
                 </div>
               </div>
+
+              {/* Category Selection */}
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Blog Category</span>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="mt-3 w-full px-3 py-2.5 rounded-lg bg-surface-container border border-outline-variant/20 text-sm text-on-surface outline-none focus:border-primary"
+                >
+                  <option value="Technology">Technology</option>
+                  <option value="Strategy">Strategy</option>
+                  <option value="Health">Health</option>
+                  <option value="Education">Education</option>
+                  <option value="Travel">Travel</option>
+                  <option value="Lifestyle">Lifestyle</option>
+                  <option value="Business">Business</option>
+                  <option value="Science">Science</option>
+                  <option value="Art & Culture">Art & Culture</option>
+                  <option value="Research">Research</option>
+                </select>
+              </div>
+
+              {/* Tone Analysis Result */}
+              {toneAnalysis && (
+                <Card className="bg-surface-container border-none">
+                  <CardContent className="p-4">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm font-bold">Tone Analysis</span>
+                      <button onClick={() => setToneAnalysis(null)} className="text-on-surface-variant">
+                        <span className="material-symbols-outlined text-sm">close</span>
+                      </button>
+                    </div>
+                    <p className="text-xs text-on-surface-variant">{toneAnalysis}</p>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Full Generation */}
               <div>
@@ -410,7 +685,7 @@ function EditorContent() {
                   <Button
                     onClick={handleGenerateWithAI}
                     disabled={generatingAI}
-                    className="w-full bg-gradient-to-r from-secondary to-tertiary text-white font-bold hover:scale-[1.02] transition-all"
+                    className="w-full bg-linear-to-r from-secondary to-tertiary text-white font-bold hover:scale-[1.02] transition-all"
                   >
                     {generatingAI ? "Generating..." : "Generate with AI"}
                   </Button>
@@ -443,7 +718,7 @@ function EditorContent() {
                       <Button
                         onClick={handleGenerateImage}
                         disabled={generatingImage}
-                        className="w-full bg-gradient-to-r from-primary to-secondary text-white font-bold hover:scale-[1.02] transition-all"
+                        className="w-full bg-linear-to-r from-primary to-secondary text-white font-bold hover:scale-[1.02] transition-all"
                       >
                         <span className="material-symbols-outlined text-sm">auto_awesome</span>
                         {generatingImage ? "Generating..." : "Generate with AI"}
@@ -510,6 +785,132 @@ function EditorContent() {
                       </div>
                     </CardContent>
                   </Card>
+                </div>
+              </div>
+            </div>
+          </aside>
+        )}
+
+        {/* Preview Panel */}
+        {showPreview && (
+          <aside className="hidden lg:flex fixed right-0 top-16 w-96 h-[calc(100vh-64px)] flex-col bg-surface-container-low border-l border-outline-variant/10 z-20 overflow-y-auto">
+            <div className="p-6 border-b border-outline-variant/10 sticky top-0 bg-surface-container-low">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">visibility</span>
+                <h3 className="font-bold font-headline">Preview</h3>
+              </div>
+              <p className="text-xs text-on-surface-variant mt-1">How your post will look</p>
+            </div>
+
+            <div className="flex-1 p-6 overflow-y-auto">
+              {/* Preview Content */}
+              <div className="prose prose-invert max-w-none">
+                {/* Rendered Title */}
+                <h1 className="text-3xl font-bold text-on-surface mb-4 leading-tight">
+                  {title || "Untitled Post"}
+                </h1>
+
+                {/* Cover Image Preview */}
+                {coverImageUrl && (
+                  <div className="rounded-lg overflow-hidden mb-6">
+                    <img
+                      src={coverImageUrl}
+                      alt={title}
+                      className="w-full h-40 object-cover"
+                    />
+                  </div>
+                )}
+
+                {/* Metadata */}
+                <div className="flex items-center gap-3 mb-6 pb-6 border-b border-outline-variant/10">
+                  <Badge className="bg-primary/10 text-primary text-xs">
+                    {category}
+                  </Badge>
+                  <span className="text-xs text-on-surface-variant">
+                    {wordCount} words • {readTime} min read
+                  </span>
+                </div>
+
+                {/* Excerpt */}
+                {excerpt && (
+                  <p className="text-lg text-on-surface-variant italic mb-6 leading-relaxed">
+                    {excerpt}
+                  </p>
+                )}
+
+                {/* Rendered Markdown Content */}
+                <div className="text-on-surface leading-relaxed space-y-4">
+                  {content.split('\n\n').map((paragraph, idx) => {
+                    // Handle headings
+                    if (paragraph.startsWith('# ')) {
+                      return (
+                        <h2 key={idx} className="text-2xl font-bold text-on-surface mt-6 mb-3">
+                          {paragraph.replace('# ', '')}
+                        </h2>
+                      );
+                    }
+                    if (paragraph.startsWith('## ')) {
+                      return (
+                        <h3 key={idx} className="text-xl font-bold text-on-surface mt-5 mb-2">
+                          {paragraph.replace('## ', '')}
+                        </h3>
+                      );
+                    }
+                    if (paragraph.startsWith('### ')) {
+                      return (
+                        <h4 key={idx} className="text-lg font-semibold text-on-surface mt-4 mb-2">
+                          {paragraph.replace('### ', '')}
+                        </h4>
+                      );
+                    }
+                    // Handle bullet lists
+                    if (paragraph.startsWith('- ')) {
+                      return (
+                        <ul key={idx} className="list-disc list-inside space-y-1 text-on-surface">
+                          {paragraph.split('\n').map((item, i) => (
+                            <li key={i}>{item.replace('- ', '')}</li>
+                          ))}
+                        </ul>
+                      );
+                    }
+                    // Handle numbered lists
+                    if (paragraph.startsWith('1. ')) {
+                      return (
+                        <ol key={idx} className="list-decimal list-inside space-y-1 text-on-surface">
+                          {paragraph.split('\n').map((item, i) => (
+                            <li key={i}>{item.replace(/^\d+\.\s/, '')}</li>
+                          ))}
+                        </ol>
+                      );
+                    }
+                    // Handle blockquotes
+                    if (paragraph.startsWith('> ')) {
+                      return (
+                        <blockquote key={idx} className="border-l-4 border-primary/50 pl-4 py-2 italic text-on-surface-variant">
+                          {paragraph.replace(/> /g, '')}
+                        </blockquote>
+                      );
+                    }
+                    // Handle code blocks
+                    if (paragraph.startsWith('```')) {
+                      return (
+                        <pre key={idx} className="bg-surface-container p-4 rounded-lg overflow-x-auto mb-4">
+                          <code className="text-on-surface text-sm font-mono">
+                            {paragraph.replace(/```/g, '')}
+                          </code>
+                        </pre>
+                      );
+                    }
+                    // Regular paragraph
+                    if (paragraph.trim()) {
+                      return (
+                        <p key={idx} className="text-on-surface">
+                          {paragraph}
+                        </p>
+                      );
+                    }
+                    return null;
+                  })}
                 </div>
               </div>
             </div>

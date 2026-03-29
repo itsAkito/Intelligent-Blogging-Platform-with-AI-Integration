@@ -2,19 +2,56 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/utils/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
-async function verifyAdmin() {
-  const { userId } = await auth();
-  if (!userId) return null;
-  const supabase = await createClient();
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single();
-  if (profile?.role !== 'admin') return null;
-  return userId;
+async function verifyAdmin(request?: NextRequest) {
+  // Try Clerk auth first
+  try {
+    const { userId } = await auth();
+    if (userId) {
+      const supabase = await createClient();
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single();
+      if (profile?.role === 'admin') return userId;
+    }
+  } catch {}
+
+  // Fall back to OTP session
+  if (request) {
+    try {
+      const supabase = await createClient();
+      const otpToken = request.cookies.get("otp_session_token")?.value;
+      
+      if (otpToken) {
+        // Query otp_sessions table to find session
+        const { data: sessions, error } = await supabase
+          .from('otp_sessions')
+          .select('user_id, expires_at, is_active')
+          .eq('session_token', otpToken)
+          .single();
+        
+        if (!error && sessions) {
+          // Check if session is active and not expired
+          if (sessions.is_active && new Date(sessions.expires_at) > new Date()) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', sessions.user_id)
+              .single();
+            
+            if (profile?.role === 'admin') return sessions.user_id;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('OTP verification error:', e);
+    }
+  }
+
+  return null;
 }
 
 // Get all users (admin only)
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const admin = await verifyAdmin();
+    const admin = await verifyAdmin(request);
     if (!admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -36,18 +73,17 @@ export async function GET() {
   }
 }
 
-// Create new user (admin only)
+// Create user (admin only)
 export async function POST(request: NextRequest) {
   try {
-    const admin = await verifyAdmin();
+    const admin = await verifyAdmin(request);
     if (!admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { email, name, role } = await request.json();
-
-    if (!email || !name) {
-      return NextResponse.json({ error: 'Email and name are required' }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ error: 'email is required' }, { status: 400 });
     }
 
     const adminClient = await createAdminClient();

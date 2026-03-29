@@ -10,39 +10,34 @@ export default function InsightsPage() {
   const { user } = useAuth();
   const [insights, setInsights] = useState<string>("");
   const [loadingAI, setLoadingAI] = useState(false);
+  const [dateRange, setDateRange] = useState<"7D" | "30D" | "90D" | "1Y">("90D");
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
 
-  const fetchAIInsights = useCallback(async () => {
+  const fetchAnalyticsData = useCallback(async (range: "7D" | "30D" | "90D" | "1Y") => {
     if (!user?.id) return;
-    setLoadingAI(true);
+    setLoadingAnalytics(true);
     try {
-      const response = await fetch("/api/ai/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topic: "content performance analysis and growth recommendations for a blog creator",
-          tone: "professional",
-          userId: user.id,
-        }),
-      });
+      const response = await fetch(`/api/user/analytics?timeframe=${range}`);
       if (response.ok) {
         const data = await response.json();
-        setInsights(data.content || "");
+        setAnalyticsData(data);
       }
     } catch (err) {
-      console.error("Failed to fetch AI insights:", err);
+      console.error("Failed to fetch analytics:", err);
     } finally {
-      setLoadingAI(false);
+      setLoadingAnalytics(false);
     }
   }, [user?.id]);
 
   useEffect(() => {
-    // Don't auto-fetch — let user initiate
-  }, []);
+    fetchAnalyticsData(dateRange);
+  }, [dateRange, fetchAnalyticsData]);
 
-  const growthData = [35, 42, 38, 56, 48, 72, 65, 80, 74, 92, 88, 95];
+  const growthData = analyticsData?.dailyData?.map((d: any) => d.views || 0) || [35, 42, 38, 56, 48, 72, 65, 80, 74, 92, 88, 95];
   const maxGrowth = Math.max(...growthData);
 
-  const trendingTopics = [
+  const trendingTopics = analyticsData?.trendingTopics || [
     { topic: "AI-Driven Content Strategy", heat: 94 },
     { topic: "Synthetic Media Ethics", heat: 87 },
     { topic: "Career Automation", heat: 76 },
@@ -77,7 +72,7 @@ export default function InsightsPage() {
               <button
                 onClick={fetchAIInsights}
                 disabled={loadingAI}
-                className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-secondary to-tertiary text-white rounded-lg font-bold text-sm hover:scale-[1.02] transition-all shadow-lg shadow-secondary/20 disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-3 bg-linear-to-r from-secondary to-tertiary text-white rounded-lg font-bold text-sm hover:scale-[1.02] transition-all shadow-lg shadow-secondary/20 disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-sm">auto_awesome</span>
                 {loadingAI ? "Analyzing..." : "Generate AI Report"}
@@ -92,8 +87,16 @@ export default function InsightsPage() {
                   <h2 className="text-2xl font-bold font-headline mt-1">Content Performance Trend</h2>
                 </div>
                 <div className="flex gap-2">
-                  {["7D", "30D", "90D", "1Y"].map((period) => (
-                    <button key={period} className={`px-3 py-1 rounded-lg text-xs font-bold ${period === "90D" ? "bg-primary/10 text-primary" : "text-on-surface-variant hover:bg-surface-container"}`}>
+                  {(["7D", "30D", "90D", "1Y"] as const).map((period) => (
+                    <button
+                      key={period}
+                      onClick={() => setDateRange(period)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                        dateRange === period
+                          ? "bg-primary text-on-primary shadow-md shadow-primary/30"
+                          : "text-on-surface-variant hover:bg-surface-container hover:text-on-surface"
+                      }`}
+                    >
                       {period}
                     </button>
                   ))}
@@ -103,7 +106,7 @@ export default function InsightsPage() {
                 {growthData.map((val, i) => (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1">
                     <div
-                      className="w-full bg-gradient-to-t from-primary/40 to-primary rounded-t-sm transition-all hover:from-primary/60 hover:to-primary"
+                      className="w-full bg-linear-to-t from-primary/40 to-primary rounded-t-sm transition-all hover:from-primary/60 hover:to-primary"
                       style={{ height: `${(val / maxGrowth) * 100}%` }}
                     ></div>
                     <span className="text-[9px] text-on-surface-variant">{["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"][i]}</span>
@@ -164,7 +167,7 @@ export default function InsightsPage() {
                       <div className="flex-1">
                         <p className="text-xs font-medium">{t.topic}</p>
                         <div className="w-full h-1 bg-surface-container-highest rounded-full mt-1">
-                          <div className="h-full bg-gradient-to-r from-primary to-secondary rounded-full" style={{ width: `${t.heat}%` }}></div>
+                          <div className="h-full bg-linear-to-r from-primary to-secondary rounded-full" style={{ width: `${t.heat}%` }}></div>
                         </div>
                       </div>
                       <span className="text-[10px] font-bold text-primary">{t.heat}°</span>

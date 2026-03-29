@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Heart, Share2 } from "lucide-react";
 
 interface ApiPost {
   id: string;
@@ -65,6 +66,7 @@ function CommunityContent() {
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState("latest");
   const [searchQuery, setSearchQuery] = useState("");
+  const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -106,6 +108,71 @@ function CommunityContent() {
 
   const trendingTopics = ["AI Writing", "Career Growth", "Tech Trends", "Productivity", "Design"];
 
+  const handleLike = async (e: React.MouseEvent, postId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const newLiked = new Set(likedPosts);
+      if (newLiked.has(postId)) {
+        newLiked.delete(postId);
+      } else {
+        newLiked.add(postId);
+      }
+      setLikedPosts(newLiked);
+      
+      // Call API to track like
+      await fetch(`/api/blog/${postId}/like`, { method: 'POST' });
+    } catch (error) {
+      console.error('Failed to like post:', error);
+    }
+  };
+
+  const handleShare = async (e: React.MouseEvent, post: ApiPost) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const shareText = `Check out "${post.title}" on AiBlog`;
+    const shareUrl = `${window.location.origin}/blog/${post.slug || post.id}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: post.title,
+          text: post.excerpt,
+          url: shareUrl,
+        });
+      } catch (error) {
+        console.error('Share failed:', error);
+      }
+    } else {
+      // Fallback for browsers that don't support Web Share API
+      const options = [
+        { name: 'Twitter', url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}` },
+        { name: 'Facebook', url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}` },
+        { name: 'LinkedIn', url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}` },
+        { name: 'WhatsApp', url: `https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}` },
+        { name: 'Email', url: `mailto:?subject=${encodeURIComponent(post.title)}&body=${encodeURIComponent(post.excerpt + '\n\n' + shareUrl)}` },
+      ];
+      
+      // Show simple share menu (you can replace with a proper modal)
+      const platform = prompt(`Share on:\n${options.map((o, i) => `${i + 1}. ${o.name}`).join('\n')}`);
+      if (platform && options[parseInt(platform) - 1]) {
+        window.open(options[parseInt(platform) - 1].url, '_blank');
+      }
+    }
+
+    // Call API to track share
+    try {
+      await fetch(`/api/blog/${post.id}/share`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: 'direct' })
+      });
+    } catch (error) {
+      console.error('Failed to track share:', error);
+    }
+  };
+
   return (
     <>
       <Navbar />
@@ -126,7 +193,7 @@ function CommunityContent() {
                   </p>
                 </div>
                 <Link href="/editor">
-                  <Button className="bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm px-6 gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:scale-[1.02] transition-all">
+                  <Button className="bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm px-6 gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30 hover:scale-[1.02] transition-all">
                     <span className="material-symbols-outlined text-base">edit_note</span>
                     Write a Post
                   </Button>
@@ -135,7 +202,7 @@ function CommunityContent() {
 
               {/* Search Bar */}
               <form onSubmit={handleSearch} className="relative group mb-6">
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-secondary/20 rounded-2xl blur opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300" />
+                <div className="absolute -inset-0.5 bg-linear-to-r from-primary/20 to-secondary/20 rounded-2xl blur opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300" />
                 <div className="relative flex items-center bg-surface-container border border-outline-variant/20 rounded-xl overflow-hidden focus-within:border-primary/40 transition-colors">
                   <span className="material-symbols-outlined text-on-surface-variant pl-4 text-lg">search</span>
                   <Input
@@ -283,22 +350,36 @@ function CommunityContent() {
                         )}
 
                         {/* Footer Stats */}
-                        <CardFooter className="px-5 pb-5 pt-1">
-                          <Separator className="bg-outline-variant/10 mb-3" />
-                          <div className="flex items-center gap-5 w-full text-on-surface-variant">
-                            <span className="flex items-center gap-1.5 text-xs hover:text-primary transition-colors">
-                              <span className="material-symbols-outlined text-[16px]">favorite</span>
-                              {post.likes_count}
-                            </span>
-                            <span className="flex items-center gap-1.5 text-xs">
+                        <CardFooter className="px-5 py-4 border-t border-outline-variant/10 flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={(e) => handleLike(e, post.id)}
+                              className={`flex items-center gap-1.5 text-xs transition-colors rounded-lg px-2.5 py-1.5 ${
+                                likedPosts.has(post.id)
+                                  ? "text-red-500 bg-red-500/10"
+                                  : "text-on-surface-variant hover:text-red-500 hover:bg-red-500/5"
+                              }`}
+                              title="Like this post"
+                            >
+                              <Heart
+                                size={16}
+                                className={likedPosts.has(post.id) ? "fill-red-500" : ""}
+                              />
+                              <span>{post.likes_count}</span>
+                            </button>
+                            <div className="flex items-center gap-1.5 text-xs text-on-surface-variant px-2.5 py-1.5">
                               <span className="material-symbols-outlined text-[16px]">visibility</span>
-                              {post.views}
-                            </span>
-                            <span className="flex items-center gap-1.5 text-xs ml-auto opacity-0 group-hover:opacity-100 transition-opacity text-primary font-medium">
-                              Read more
-                              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                            </span>
+                              <span>{post.views}</span>
+                            </div>
                           </div>
+                          <button
+                            onClick={(e) => handleShare(e, post)}
+                            className="flex items-center gap-1.5 text-xs text-on-surface-variant hover:text-primary transition-colors rounded-lg px-2.5 py-1.5 hover:bg-primary/5"
+                            title="Share this post"
+                          >
+                            <Share2 size={16} />
+                            <span className="hidden sm:inline">Share</span>
+                          </button>
                         </CardFooter>
                       </Card>
                     </Link>
@@ -353,7 +434,7 @@ function CommunityContent() {
                 </Card>
 
                 {/* AI Pulse Insight */}
-                <Card className="bg-gradient-to-br from-surface-container to-secondary-container/10 border-secondary/10 rounded-2xl overflow-hidden relative group">
+                <Card className="bg-linear-to-br from-surface-container to-secondary-container/10 border-secondary/10 rounded-2xl overflow-hidden relative group">
                   <div className="absolute -right-6 -top-6 w-28 h-28 bg-secondary/10 blur-3xl group-hover:bg-secondary/20 transition-all duration-500" />
                   <CardHeader className="pb-2 relative">
                     <div className="flex items-center gap-2">
@@ -366,7 +447,7 @@ function CommunityContent() {
                       Creators publishing 3+ AI-assisted articles saw a <span className="text-secondary font-bold">45% increase</span> in profile views.
                     </p>
                     <div className="h-1.5 w-full bg-outline-variant/10 rounded-full overflow-hidden">
-                      <div className="h-full w-2/3 bg-gradient-to-r from-secondary to-tertiary rounded-full" />
+                      <div className="h-full w-2/3 bg-linear-to-r from-secondary to-tertiary rounded-full" />
                     </div>
                   </CardContent>
                 </Card>
@@ -398,7 +479,7 @@ function CommunityContent() {
                 </Card>
 
                 {/* Upgrade Card */}
-                <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/10 rounded-2xl">
+                <Card className="bg-linear-to-br from-primary/5 to-primary/10 border-primary/10 rounded-2xl">
                   <CardContent className="p-5 text-center">
                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
                       <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
@@ -407,9 +488,11 @@ function CommunityContent() {
                     <p className="text-[11px] text-on-surface-variant leading-relaxed mb-4">
                       Advanced AI tools, analytics, and priority support.
                     </p>
-                    <Button variant="outline" className="w-full rounded-lg border-primary/20 text-primary hover:bg-primary hover:text-on-primary transition-all text-xs font-bold">
-                      Upgrade
-                    </Button>
+                    <Link href="/pricing" className="block">
+                      <Button className="w-full rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-all text-xs font-bold">
+                        Upgrade Now
+                      </Button>
+                    </Link>
                   </CardContent>
                 </Card>
               </div>
