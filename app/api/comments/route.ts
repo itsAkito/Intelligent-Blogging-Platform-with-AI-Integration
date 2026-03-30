@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 // GET comments for a specific post
 export async function GET(request: NextRequest) {
@@ -40,16 +40,16 @@ export async function GET(request: NextRequest) {
 
 // POST a new comment (authenticated or guest)
 export async function POST(request: NextRequest) {
-  console.log('=== COMMENT API POST CALLED ===');
-  console.log('Request method:', request.method);
-  console.log('Request URL:', request.url);
-
   try {
-    console.log('Starting comment creation process...');
     let body;
     try {
-      body = await request.json();
-      console.log('Request body parsed successfully:', body);
+      // Use arrayBuffer to read body – more reliable than text()/clone() with Clerk middleware.
+      const arrayBuffer = await request.arrayBuffer();
+      const rawText = Buffer.from(arrayBuffer).toString('utf8');
+      if (!rawText || rawText.trim() === '') {
+        return NextResponse.json({ error: 'Request body is empty' }, { status: 400 });
+      }
+      body = JSON.parse(rawText);
     } catch (parseError) {
       console.error('Failed to parse request body:', parseError);
       return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
@@ -79,27 +79,14 @@ export async function POST(request: NextRequest) {
 
     let supabase;
     try {
-      console.log('Creating Supabase client...');
       supabase = await createClient();
-      console.log('Supabase client created successfully');
     } catch (clientError) {
       const errorMsg = clientError instanceof Error ? clientError.message : String(clientError);
       console.error('Failed to create Supabase client:', errorMsg);
       return NextResponse.json({ error: 'Database connection failed', details: errorMsg }, { status: 500 });
     }
 
-    let session;
-    try {
-      console.log('Getting auth session...');
-      session = await auth();
-      console.log('Auth session retrieved:', session ? 'User authenticated' : 'No session');
-    } catch (authError) {
-      const errorMsg = authError instanceof Error ? authError.message : String(authError);
-      console.error('Auth error:', errorMsg);
-      return NextResponse.json({ error: 'Authentication service unavailable', details: errorMsg }, { status: 500 });
-    }
-
-    const userId = session?.userId;
+    const userId = await getAuthUserId(request);
 
     // If not authenticated, require guest name and email
     if (!userId) {
@@ -119,14 +106,10 @@ export async function POST(request: NextRequest) {
     };
 
     if (postId) {
-      // Temporarily skip post validation for testing
-      console.log('Using postId:', postId);
       commentData.post_id = postId;
     }
 
     if (communityPostId) {
-      // Temporarily skip community post validation for testing
-      console.log('Using communityPostId:', communityPostId);
       commentData.community_post_id = communityPostId;
     }
 
@@ -138,15 +121,12 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Comment insert error:', error);
-      console.error('Comment data being inserted:', commentData);
       return NextResponse.json({
-        error: `Failed to create comment: ${error.message || 'Database error'}`,
-        details: error.details || 'No additional details',
-        code: error.code || 'Unknown code'
+        error: error.message || 'Failed to create comment',
+        details: error.details || null,
+        code: error.code || null,
       }, { status: 400 });
     }
-
-    console.log('Comment created successfully:', data);
 
     // Update comment count on the post
     if (postId) {

@@ -2,6 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
+async function resolveAuthenticatedUserId(request: NextRequest) {
+  try {
+    const clerkAuth = await auth();
+    if (clerkAuth.userId) {
+      return clerkAuth.userId;
+    }
+  } catch {}
+
+  const supabase = await createClient();
+  const otpToken = request.cookies.get('otp_session_token')?.value;
+
+  if (!otpToken) {
+    return null;
+  }
+
+  const { data: session } = await supabase
+    .from('otp_sessions')
+    .select('user_id, expires_at, is_active')
+    .eq('session_token', otpToken)
+    .single();
+
+  if (!session || !session.is_active || new Date(session.expires_at) <= new Date()) {
+    return null;
+  }
+
+  return session.user_id;
+}
+
 // GET all subscription plans or user's subscription
 export async function GET(request: NextRequest) {
   try {
@@ -30,26 +58,7 @@ export async function GET(request: NextRequest) {
     let targetUserId = userId;
     
     if (!targetUserId) {
-      // Try Clerk first
-      const clerkAuth = await auth();
-      targetUserId = clerkAuth.userId || null;
-      
-      // Fall back to OTP session
-      if (!targetUserId) {
-        const otpToken = request.cookies.get("otp_session_token")?.value;
-        if (otpToken) {
-          const { data: sessions } = await supabase
-            .from('otp_sessions')
-            .select('user_id')
-            .eq('session_token', otpToken)
-            .eq('is_active', true)
-            .single();
-          
-          if (sessions?.user_id) {
-            targetUserId = sessions.user_id;
-          }
-        }
-      }
+      targetUserId = await resolveAuthenticatedUserId(request);
     }
     
     if (!targetUserId) {
@@ -97,13 +106,21 @@ export async function GET(request: NextRequest) {
 // POST create or update subscription
 export async function POST(request: NextRequest) {
   try {
-    const clerkAuth = await auth();
-    if (!clerkAuth.userId) {
+    const userId = await resolveAuthenticatedUserId(request);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
     const { planId, billingCycle } = body; // billingCycle: 'monthly' or 'annual'
+
+    if (!planId) {
+      return NextResponse.json({ error: 'Plan ID is required' }, { status: 400 });
+    }
+
+    if (billingCycle !== 'monthly' && billingCycle !== 'annual') {
+      return NextResponse.json({ error: 'billingCycle must be monthly or annual' }, { status: 400 });
+    }
 
     const supabase = await createClient();
 
@@ -118,14 +135,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
     }
 
+    if (!plan) {
+      return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
+    }
+
     // Check for existing subscription
     const { data: existing } = await supabase
       .from('user_subscriptions')
       .select('*')
-      .eq('user_id', clerkAuth.userId)
+      .eq('user_id', userId)
       .single();
 
-    const price = billingCycle === 'annual' ? plan.price_annual : plan.price_monthly;
     const endsAt = new Date();
     endsAt.setMonth(endsAt.getMonth() + (billingCycle === 'annual' ? 12 : 1));
 
@@ -155,7 +175,7 @@ export async function POST(request: NextRequest) {
       .from('user_subscriptions')
       .insert([
         {
-          user_id: clerkAuth.userId,
+          user_id: userId,
           plan_id: planId,
           status: 'active',
           ends_at: endsAt.toISOString(),
@@ -180,8 +200,8 @@ export async function POST(request: NextRequest) {
 // PUT cancel subscription
 export async function PUT(request: NextRequest) {
   try {
-    const clerkAuth = await auth();
-    if (!clerkAuth.userId) {
+    const userId = await resolveAuthenticatedUserId(request);
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -194,7 +214,7 @@ export async function PUT(request: NextRequest) {
         auto_renew: false,
         updated_at: new Date().toISOString(),
       })
-      .eq('user_id', clerkAuth.userId)
+      .eq('user_id', userId)
       .select('*, subscription_plans(*)')
       .single();
 

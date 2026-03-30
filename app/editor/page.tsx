@@ -14,6 +14,23 @@ import { Separator } from "@/components/ui/separator";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { renderMarkdownBlocks } from "@/lib/markdown";
+
+type Collaborator = {
+  id: string;
+  user_id: string;
+  permission: "editor" | "viewer";
+  status: "pending" | "accepted" | "rejected";
+  profiles?: { id: string; name?: string; email?: string; avatar_url?: string };
+};
+
+type IncomingInvite = {
+  id: string;
+  post_id: string;
+  permission: "editor" | "viewer";
+  posts?: { title?: string; slug?: string };
+  inviter?: { id: string; name?: string; email?: string };
+};
 
 function EditorContent() {
   const router = useRouter();
@@ -41,9 +58,178 @@ function EditorContent() {
   const [isAiGenerated, setIsAiGenerated] = useState(false);
   const [showSlashCommand, setShowSlashCommand] = useState(false);
   const [slashCommandPosition, setSlashCommandPosition] = useState({ top: 0, left: 0 });
+  const [showCollaboratorBlock, setShowCollaboratorBlock] = useState(searchParams.get("collab") === "1");
+  const [postAuthorId, setPostAuthorId] = useState<string | null>(null);
+  const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [incomingInvites, setIncomingInvites] = useState<IncomingInvite[]>([]);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [invitePermission, setInvitePermission] = useState<"editor" | "viewer">("editor");
+  const [collabLoading, setCollabLoading] = useState(false);
+  const [collabFeedback, setCollabFeedback] = useState("");
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
+  const writingTemplates = [
+    {
+      id: "blog-post",
+      label: "Blog Post",
+      category: "Technology",
+      title: "How to Solve [Problem] with [Approach]",
+      excerpt: "A practical breakdown of the challenge, the strategy, and key outcomes.",
+      topic: "Technical Writing",
+      content: `## Introduction
+
+Write one short paragraph framing the reader's pain point and why this topic matters now.
+
+## The Core Problem
+
+- Context and constraints
+- Why common approaches fail
+- What success looks like
+
+## Solution Breakdown
+
+### 1. Set Up
+
+Explain the required setup and assumptions.
+
+### 2. Implementation
+
+Walk through the key implementation steps with concrete examples.
+
+### 3. Validation
+
+Show how you tested and validated results.
+
+## Key Takeaways
+
+- Takeaway 1
+- Takeaway 2
+- Takeaway 3
+
+## Next Steps
+
+Recommend what readers should do next.`
+    },
+    {
+      id: "meeting-notes",
+      label: "Meeting Notes",
+      category: "Business",
+      title: "Meeting Notes: [Project / Team Name]",
+      excerpt: "Decisions, action items, and owners from today's meeting.",
+      topic: "Team Collaboration",
+      content: `## Meeting Details
+
+- Date:
+- Time:
+- Attendees:
+- Facilitator:
+
+## Agenda
+
+1. Topic one
+2. Topic two
+3. Topic three
+
+## Discussion Notes
+
+### Topic 1
+
+- Summary:
+- Risks / blockers:
+
+### Topic 2
+
+- Summary:
+- Risks / blockers:
+
+## Decisions Made
+
+- Decision 1
+- Decision 2
+
+## Action Items
+
+- [ ] Owner - Task - Due date
+- [ ] Owner - Task - Due date
+
+## Parking Lot
+
+- Items deferred for later discussion`
+    },
+    {
+      id: "code-snippet",
+      label: "Code Snippet",
+      category: "Technology",
+      title: "Code Walkthrough: [Feature Name]",
+      excerpt: "A focused explanation of a useful snippet and how to adapt it.",
+      topic: "Developer Guide",
+      content: `## What This Snippet Solves
+
+Explain the use case in one or two sentences.
+
+## Code
+
+\`\`\`ts
+export function example(input: string) {
+  if (!input.trim()) {
+    throw new Error("Input is required");
+  }
+
+  return input.toLowerCase();
+}
+\`\`\`
+
+## How It Works
+
+1. Validate input
+2. Transform data
+3. Return normalized output
+
+## Integration Tips
+
+- Add tests for edge cases
+- Handle runtime errors where this is called
+- Extend with domain-specific validation`
+    },
+  ];
+
+  const applyTemplate = (templateId: string) => {
+    const template = writingTemplates.find((item) => item.id === templateId);
+    if (!template) return;
+
+    if (content.trim().length > 20) {
+      const shouldReplace = window.confirm("Replace your current draft with this template?");
+      if (!shouldReplace) return;
+    }
+
+    setTitle(template.title);
+    setExcerpt(template.excerpt);
+    setTopic(template.topic);
+    setCategory(template.category);
+    setContent(template.content);
+    setSuccess(`${template.label} template applied`);
+    setTimeout(() => setSuccess(""), 2500);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+      e.preventDefault();
+      insertFormat("**", "**");
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "i") {
+      e.preventDefault();
+      insertFormat("*", "*");
+      return;
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      insertFormat("[", "](url)");
+      return;
+    }
+
     if (e.key === "/") {
       const textarea = contentRef.current;
       if (textarea) {
@@ -124,6 +310,9 @@ function EditorContent() {
     { label: "Blockquote", action: () => insertFormat("\n> ", "") },
     { label: "Code Block", action: () => insertFormat("\n```\n", "\n```\n") },
     { label: "Image", action: () => insertFormat("![", "](url)") },
+    { label: "Table", action: () => insertFormat("\n| Column 1 | Column 2 |\n| --- | --- |\n| Value 1 | Value 2 |\n", "") },
+    { label: "Checklist", action: () => insertFormat("\n- [ ] Task 1\n- [ ] Task 2\n", "") },
+    { label: "Callout", action: () => insertFormat("\n> [!NOTE] Add your key insight here\n", "") },
   ];
 
   const formatActions: {
@@ -153,6 +342,8 @@ function EditorContent() {
     { type: "button", icon: "code", label: "Inline Code", action: () => insertFormat("`", "`") },
     { type: "button", icon: "code_blocks", label: "Code Block", action: () => insertFormat("\n```\n", "\n```\n") },
     { type: "button", icon: "link", label: "Link", action: () => insertFormat("[", "](url)") },
+    { type: "button", icon: "table", label: "Table", action: () => insertFormat("\n| Column 1 | Column 2 |\n| --- | --- |\n| Value 1 | Value 2 |\n", "") },
+    { type: "button", icon: "checklist", label: "Checklist", action: () => insertFormat("\n- [ ] Task 1\n- [ ] Task 2\n", "") },
     { type: "button", icon: "horizontal_rule", label: "Divider", action: () => insertFormat("\n\n---\n\n", "") },
   ];
 
@@ -168,6 +359,7 @@ function EditorContent() {
         setExcerpt(post.excerpt || "");
         setTopic(post.topic || "");
         setCoverImageUrl(post.cover_image_url || "");
+        setPostAuthorId(post.author_id || null);
         setIsEditing(true);
       }
     } catch (err) {
@@ -179,8 +371,55 @@ function EditorContent() {
     loadPost();
   }, [loadPost]);
 
+  const loadCollaborators = useCallback(async () => {
+    if (!editId) {
+      setCollaborators([]);
+      return;
+    }
+
+    try {
+      setCollabLoading(true);
+      const response = await fetch(`/api/posts/${editId}/collaborators`);
+      if (!response.ok) {
+        setCollaborators([]);
+        return;
+      }
+      const data = await response.json();
+      setCollaborators(data.collaborators || []);
+    } catch (err) {
+      console.error("Failed to load collaborators:", err);
+      setCollaborators([]);
+    } finally {
+      setCollabLoading(false);
+    }
+  }, [editId]);
+
+  const loadIncomingInvites = useCallback(async () => {
+    try {
+      const response = await fetch("/api/collaboration/invites");
+      if (!response.ok) {
+        setIncomingInvites([]);
+        return;
+      }
+      const data = await response.json();
+      setIncomingInvites(data.invites || []);
+    } catch (err) {
+      console.error("Failed to load collaboration invites:", err);
+      setIncomingInvites([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadCollaborators();
+  }, [loadCollaborators]);
+
+  useEffect(() => {
+    loadIncomingInvites();
+  }, [loadIncomingInvites]);
+
   const wordCount = content.split(/\s+/).filter((w) => w.length > 0).length;
   const readTime = Math.max(1, Math.ceil(wordCount / 200));
+  const isPostOwner = !!(user?.id && postAuthorId && user.id === postAuthorId);
 
   const handleGenerateWithAI = async () => {
     if (!user) { setError("You must be logged in."); return; }
@@ -353,6 +592,103 @@ function EditorContent() {
 
   // Auto-save draft every 30 seconds
   const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("unsaved");
+
+  const setCollabMessage = (message: string) => {
+    setCollabFeedback(message);
+    setTimeout(() => setCollabFeedback(""), 2500);
+  };
+
+  const handleInviteCollaborator = async () => {
+    if (!editId || !inviteEmail.trim()) return;
+
+    try {
+      setCollabLoading(true);
+      const response = await fetch(`/api/posts/${editId}/collaborators`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail.trim(), permission: invitePermission }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to send invite");
+      }
+
+      setInviteEmail("");
+      setCollabMessage("Collaboration invite sent.");
+      await loadCollaborators();
+    } catch (err) {
+      setCollabMessage(err instanceof Error ? err.message : "Failed to send collaboration invite");
+    } finally {
+      setCollabLoading(false);
+    }
+  };
+
+  const handlePermissionChange = async (targetUserId: string, permission: "editor" | "viewer") => {
+    if (!editId) return;
+
+    try {
+      const response = await fetch(`/api/posts/${editId}/collaborators`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "permission", userId: targetUserId, permission }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update permission");
+      }
+
+      await loadCollaborators();
+      setCollabMessage("Permission updated.");
+    } catch (err) {
+      setCollabMessage(err instanceof Error ? err.message : "Failed to update permission");
+    }
+  };
+
+  const handleRemoveCollaborator = async (targetUserId: string) => {
+    if (!editId) return;
+
+    try {
+      const response = await fetch(`/api/posts/${editId}/collaborators?userId=${encodeURIComponent(targetUserId)}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to remove collaborator");
+      }
+
+      await loadCollaborators();
+      setCollabMessage("Collaborator removed.");
+    } catch (err) {
+      setCollabMessage(err instanceof Error ? err.message : "Failed to remove collaborator");
+    }
+  };
+
+  const handleInviteResponse = async (postId: string, action: "accept" | "reject") => {
+    try {
+      const response = await fetch("/api/collaboration/invites", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId, action }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to update invite");
+      }
+
+      setIncomingInvites((prev) => prev.filter((invite) => invite.post_id !== postId));
+      setCollabMessage(action === "accept" ? "Invite accepted." : "Invite rejected.");
+
+      if (action === "accept") {
+        router.push(`/editor?id=${postId}&collab=1`);
+      }
+    } catch (err) {
+      setCollabMessage(err instanceof Error ? err.message : "Failed to update invite");
+    }
+  };
   
   const saveDraft = useCallback(async () => {
     if (!user || !title.trim()) return;
@@ -388,13 +724,11 @@ function EditorContent() {
       setSaveStatus("unsaved");
       console.error("Auto-save failed:", err);
     }
-  }, [title, content, excerpt, topic, coverImageUrl, user, isEditing, editId, router]);
+  }, [title, content, excerpt, topic, coverImageUrl, isAiGenerated, user, isEditing, editId, router]);
 
   useEffect(() => {
     const autoSaveTimer = setInterval(() => {
-      if (title.trim() && content.trim()) {
-        saveDraft();
-      }
+      saveDraft();
     }, 30000); // Auto-save every 30 seconds
 
     return () => clearInterval(autoSaveTimer);
@@ -407,14 +741,14 @@ function EditorContent() {
         {/* Main Editor */}
         <div className={`flex-1 flex flex-col ${showAISidebar ? "lg:mr-80" : ""} ${showPreview ? "lg:mr-96" : ""} transition-all`}>
           {/* Toolbar */}
-          <div className="sticky top-16 z-30 bg-surface-container-low/80 backdrop-blur-xl border-b border-outline-variant/10 px-6 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="sticky top-16 z-30 bg-surface-container-low/80 backdrop-blur-xl border-b border-outline-variant/10 px-3 sm:px-6 py-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 min-w-0">
               <Button variant="ghost" size="icon" onClick={() => router.back()} className="text-on-surface-variant">
                 <span className="material-symbols-outlined text-lg">arrow_back</span>
               </Button>
               <Separator orientation="vertical" className="h-5" />
               <TooltipProvider delayDuration={300}>
-                <div className="flex gap-0.5 flex-wrap">
+                <div className="flex gap-0.5 overflow-x-auto no-scrollbar">
                   {formatActions.map((action) =>
                     action.type === "popover" ? (
                       <Popover key={action.icon}>
@@ -462,7 +796,7 @@ function EditorContent() {
                 </div>
               </TooltipProvider>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 shrink-0">
               <Badge variant="outline" className="text-xs text-on-surface-variant">{wordCount} words &bull; {readTime} min read</Badge>
               {saveStatus === "saving" && (
                 <span className="text-xs text-yellow-400 flex items-center gap-1">
@@ -494,6 +828,15 @@ function EditorContent() {
                 <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
               </Button>
               <Button
+                variant={showCollaboratorBlock ? "secondary" : "ghost"}
+                size="icon"
+                onClick={() => setShowCollaboratorBlock(!showCollaboratorBlock)}
+                className={showCollaboratorBlock ? "bg-primary/10 text-primary" : "text-on-surface-variant"}
+                title="Toggle Collaboration Panel"
+              >
+                <span className="material-symbols-outlined text-[18px]">group</span>
+              </Button>
+              <Button
                 onClick={handlePublish}
                 disabled={loading}
                 className="bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all"
@@ -519,12 +862,154 @@ function EditorContent() {
               </div>
             )}
 
+            {showCollaboratorBlock && (
+              <Card className="mb-6 border-white/15 bg-white/5 backdrop-blur-xl shadow-xl shadow-black/20">
+                <CardContent className="p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <h3 className="text-sm font-bold text-on-surface flex items-center gap-2">
+                        <span className="material-symbols-outlined text-primary text-base">group</span>
+                        Collaborator Toolkit
+                      </h3>
+                      <p className="text-xs text-on-surface-variant mt-1">
+                        Manage co-authors without leaving the editor.
+                      </p>
+                    </div>
+                    {editId ? (
+                      <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                        Draft ID Active
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px]">
+                        Save draft first to enable invites
+                      </Badge>
+                    )}
+                  </div>
+
+                  {collabFeedback && (
+                    <div className="rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs text-primary">
+                      {collabFeedback}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-white/10 bg-white/3 p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-2">Incoming Invites</p>
+                      <div className="space-y-2">
+                        {incomingInvites.length === 0 ? (
+                          <p className="text-xs text-on-surface-variant">No pending collaboration invites.</p>
+                        ) : (
+                          incomingInvites.map((invite) => (
+                            <div key={invite.id} className="rounded-lg border border-white/10 bg-white/5 p-2.5">
+                              <p className="text-xs font-semibold text-on-surface line-clamp-1">{invite.posts?.title || "Untitled Draft"}</p>
+                              <p className="text-[11px] text-on-surface-variant mt-0.5 line-clamp-1">
+                                Invited by {invite.inviter?.name || invite.inviter?.email || "Creator"}
+                              </p>
+                              <div className="mt-2 flex gap-2">
+                                <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => handleInviteResponse(invite.post_id, "reject")}>Reject</Button>
+                                <Button size="sm" className="h-7 text-[11px]" onClick={() => handleInviteResponse(invite.post_id, "accept")}>Accept & Open</Button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-white/3 p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant mb-2">Draft Team</p>
+                      {!editId ? (
+                        <p className="text-xs text-on-surface-variant">Publish or save a draft first, then invite collaborators.</p>
+                      ) : (
+                        <>
+                          {isPostOwner ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-6 gap-2 mb-3">
+                              <Input
+                                value={inviteEmail}
+                                onChange={(e) => setInviteEmail(e.target.value)}
+                                placeholder="teammate@email.com"
+                                className="sm:col-span-3 bg-surface-container"
+                              />
+                              <select
+                                value={invitePermission}
+                                onChange={(e) => setInvitePermission(e.target.value === "viewer" ? "viewer" : "editor")}
+                                className="sm:col-span-2 h-10 rounded-md border border-input bg-background px-3 text-sm"
+                              >
+                                <option value="editor">Editor</option>
+                                <option value="viewer">Viewer</option>
+                              </select>
+                              <Button className="sm:col-span-1" disabled={collabLoading || !inviteEmail.trim()} onClick={handleInviteCollaborator}>
+                                Invite
+                              </Button>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-on-surface-variant mb-3">You can view collaborators here. Only owners can send invites.</p>
+                          )}
+
+                          <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                            {collabLoading ? (
+                              <p className="text-xs text-on-surface-variant">Loading collaborators...</p>
+                            ) : collaborators.length === 0 ? (
+                              <p className="text-xs text-on-surface-variant">No collaborators yet.</p>
+                            ) : (
+                              collaborators.map((collaborator) => (
+                                <div key={collaborator.id} className="rounded-lg border border-white/10 bg-white/5 p-2.5 flex items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-semibold text-on-surface truncate">{collaborator.profiles?.name || collaborator.profiles?.email || collaborator.user_id}</p>
+                                    <p className="text-[11px] text-on-surface-variant truncate">Status: {collaborator.status}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {isPostOwner ? (
+                                      <select
+                                        value={collaborator.permission}
+                                        onChange={(e) => handlePermissionChange(collaborator.user_id, e.target.value === "viewer" ? "viewer" : "editor")}
+                                        className="h-7 rounded border border-input bg-background px-2 text-[11px]"
+                                      >
+                                        <option value="editor">Editor</option>
+                                        <option value="viewer">Viewer</option>
+                                      </select>
+                                    ) : (
+                                      <Badge variant="outline" className="text-[10px]">{collaborator.permission}</Badge>
+                                    )}
+                                    {isPostOwner && (
+                                      <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => handleRemoveCollaborator(collaborator.user_id)}>
+                                        Remove
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Untitled Post"
               className="w-full bg-transparent text-4xl md:text-5xl font-extrabold font-headline tracking-tighter text-on-surface placeholder:text-on-surface-variant/30 outline-none mb-4 leading-tight"
             />
+
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Templates</span>
+              {writingTemplates.map((template) => (
+                <Button
+                  key={template.id}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-outline-variant/20"
+                  onClick={() => applyTemplate(template.id)}
+                >
+                  {template.label}
+                </Button>
+              ))}
+            </div>
 
             {/* Cover Image Preview */}
             {coverImageUrl && (
@@ -545,6 +1030,14 @@ function EditorContent() {
               placeholder="Add a brief excerpt..."
               className="w-full bg-transparent text-lg text-on-surface-variant placeholder:text-on-surface-variant/20 outline-none mb-8"
             />
+
+            <div className="mb-5 flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" className="border-outline-variant/20" onClick={() => insertFormat("\n## Key Takeaways\n", "")}>Key Takeaways</Button>
+              <Button type="button" variant="outline" size="sm" className="border-outline-variant/20" onClick={() => insertFormat("\n### Quick Summary\n", "")}>Quick Summary</Button>
+              <Button type="button" variant="outline" size="sm" className="border-outline-variant/20" onClick={() => insertFormat("\n- [ ] Add actionable checklist\n", "")}>Checklist</Button>
+              <Button type="button" variant="outline" size="sm" className="border-outline-variant/20" onClick={() => insertFormat("\n| Metric | Result |\n| --- | --- |\n| Value | Value |\n", "")}>Table</Button>
+            </div>
+
             <textarea
               ref={contentRef}
               value={content}
@@ -840,77 +1333,7 @@ function EditorContent() {
 
                 {/* Rendered Markdown Content */}
                 <div className="text-on-surface leading-relaxed space-y-4">
-                  {content.split('\n\n').map((paragraph, idx) => {
-                    // Handle headings
-                    if (paragraph.startsWith('# ')) {
-                      return (
-                        <h2 key={idx} className="text-2xl font-bold text-on-surface mt-6 mb-3">
-                          {paragraph.replace('# ', '')}
-                        </h2>
-                      );
-                    }
-                    if (paragraph.startsWith('## ')) {
-                      return (
-                        <h3 key={idx} className="text-xl font-bold text-on-surface mt-5 mb-2">
-                          {paragraph.replace('## ', '')}
-                        </h3>
-                      );
-                    }
-                    if (paragraph.startsWith('### ')) {
-                      return (
-                        <h4 key={idx} className="text-lg font-semibold text-on-surface mt-4 mb-2">
-                          {paragraph.replace('### ', '')}
-                        </h4>
-                      );
-                    }
-                    // Handle bullet lists
-                    if (paragraph.startsWith('- ')) {
-                      return (
-                        <ul key={idx} className="list-disc list-inside space-y-1 text-on-surface">
-                          {paragraph.split('\n').map((item, i) => (
-                            <li key={i}>{item.replace('- ', '')}</li>
-                          ))}
-                        </ul>
-                      );
-                    }
-                    // Handle numbered lists
-                    if (paragraph.startsWith('1. ')) {
-                      return (
-                        <ol key={idx} className="list-decimal list-inside space-y-1 text-on-surface">
-                          {paragraph.split('\n').map((item, i) => (
-                            <li key={i}>{item.replace(/^\d+\.\s/, '')}</li>
-                          ))}
-                        </ol>
-                      );
-                    }
-                    // Handle blockquotes
-                    if (paragraph.startsWith('> ')) {
-                      return (
-                        <blockquote key={idx} className="border-l-4 border-primary/50 pl-4 py-2 italic text-on-surface-variant">
-                          {paragraph.replace(/> /g, '')}
-                        </blockquote>
-                      );
-                    }
-                    // Handle code blocks
-                    if (paragraph.startsWith('```')) {
-                      return (
-                        <pre key={idx} className="bg-surface-container p-4 rounded-lg overflow-x-auto mb-4">
-                          <code className="text-on-surface text-sm font-mono">
-                            {paragraph.replace(/```/g, '')}
-                          </code>
-                        </pre>
-                      );
-                    }
-                    // Regular paragraph
-                    if (paragraph.trim()) {
-                      return (
-                        <p key={idx} className="text-on-surface">
-                          {paragraph}
-                        </p>
-                      );
-                    }
-                    return null;
-                  })}
+                  {renderMarkdownBlocks(content)}
                 </div>
               </div>
             </div>

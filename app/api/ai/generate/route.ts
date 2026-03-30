@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateBlogContent, generateBlogTitle, generateBlogExcerpt, generateSyntheticInsight } from '@/lib/gemini';
+import { generateBlogContent, generateBlogTitle, generateBlogExcerpt, generateSyntheticInsight, getAIProviderStatus } from '@/lib/gemini';
 import { retryWithExponentialBackoff, isRateLimitError, isConfigError } from '@/lib/retry';
 
 /**
@@ -19,17 +19,16 @@ export async function POST(_request: NextRequest) {
       );
     }
 
-    // Check if Gemini API key is configured
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey || geminiKey.includes('paste_your') || geminiKey.includes('your_new') || geminiKey.includes('your_api_key')) {
+    const aiStatus = getAIProviderStatus();
+    if (!aiStatus.configured) {
       return NextResponse.json(
         {
-          error: 'Gemini API key is not configured',
+          error: 'No AI provider key is configured',
           code: 'MISSING_API_KEY',
           setup: {
-            service: 'Google Gemini (OpenAI-Compatible)',
-            url: 'https://aistudio.google.com/app/apikey',
-            instruction: 'Create a new API key and update GEMINI_API_KEY in .env.local'
+            service: 'AI Provider',
+            instruction:
+              'Set one of OPENAI_API_KEY, XAI_API_KEY, PERPLEXITY_API_KEY, or GEMINI_API_KEY in .env.local. Optional: set AI_PROVIDER=openai|xai|perplexity|gemini',
           }
         },
         { status: 503 }
@@ -100,7 +99,7 @@ export async function POST(_request: NextRequest) {
       if (isConfigError(aiError)) {
         return NextResponse.json(
           { 
-            error: 'API Key configuration error. Please check your GEMINI_API_KEY in .env.local.', 
+            error: 'API Key configuration error. Please check your AI provider keys in .env.local.', 
             code: 'CONFIG_ERROR',
             details: aiError.message,
           },

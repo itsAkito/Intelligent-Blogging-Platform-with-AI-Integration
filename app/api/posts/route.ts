@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,6 +12,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const search = searchParams.get('search');
     const topic = searchParams.get('topic');
+    const status = searchParams.get('status');
 
     // Validate Supabase is configured
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY.includes('placeholder')) {
@@ -42,6 +44,10 @@ export async function GET(request: NextRequest) {
       query = query.eq('topic', topic);
     }
 
+    if (status) {
+      query = query.eq('status', status);
+    }
+
     const offset = (page - 1) * limit;
     const { data, count, error } = await query
       .order('created_at', { ascending: false })
@@ -62,8 +68,57 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
+    const postIds = (data || []).map((post: any) => post.id).filter(Boolean);
+    const likesByPostId = new Map<string, number>();
+    const commentsByPostId = new Map<string, number>();
+    const likedByCurrentUser = new Set<string>();
+
+    if (postIds.length > 0) {
+      const authUserId = await getAuthUserId(request);
+
+      const [{ data: likeRows }, { data: commentRows }] = await Promise.all([
+        supabase
+          .from('post_likes')
+          .select('post_id')
+          .in('post_id', postIds),
+        supabase
+          .from('comments')
+          .select('post_id')
+          .in('post_id', postIds),
+      ]);
+
+      for (const row of likeRows || []) {
+        if (!row.post_id) continue;
+        likesByPostId.set(row.post_id, (likesByPostId.get(row.post_id) || 0) + 1);
+      }
+
+      for (const row of commentRows || []) {
+        if (!row.post_id) continue;
+        commentsByPostId.set(row.post_id, (commentsByPostId.get(row.post_id) || 0) + 1);
+      }
+
+      if (authUserId) {
+        const { data: likedRows } = await supabase
+          .from('post_likes')
+          .select('post_id')
+          .eq('user_id', authUserId)
+          .in('post_id', postIds);
+
+        for (const row of likedRows || []) {
+          if (row.post_id) likedByCurrentUser.add(row.post_id);
+        }
+      }
+    }
+
+    const enrichedPosts = (data || []).map((post: any) => ({
+      ...post,
+      likes_count: likesByPostId.get(post.id) ?? post.likes_count ?? 0,
+      comments_count: commentsByPostId.get(post.id) ?? post.comments_count ?? 0,
+      liked_by_current_user: likedByCurrentUser.has(post.id),
+    }));
+
     return NextResponse.json({
-      posts: data,
+      posts: enrichedPosts,
       pagination: {
         page, limit, total: count,
         totalPages: count ? Math.ceil(count / limit) : 0,

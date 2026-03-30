@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { generateBlogContent } from '@/lib/gemini';
+import { generateBlogContent, getAIProviderStatus } from '@/lib/gemini';
 
 /**
  * GET /api/admin/test-gemini
@@ -8,41 +8,23 @@ import { generateBlogContent } from '@/lib/gemini';
  */
 export async function GET() {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const aiStatus = getAIProviderStatus();
 
-    // Check if API key is configured
-    if (!apiKey) {
+    // Check if at least one provider key is configured
+    if (!aiStatus.configured) {
       return NextResponse.json(
         {
           status: 'error',
-          error: 'Gemini API key is not configured',
+          error: 'No AI provider key is configured',
           code: 'MISSING_API_KEY',
           setup: {
-            step1: 'Go to https://aistudio.google.com/app/apikey',
-            step2: 'Create a new API key or copy existing one',
-            step3: 'Add to .env.local: GEMINI_API_KEY=your_key_here',
+            step1: 'Choose a provider: OpenAI, xAI, Perplexity, or Gemini',
+            step2: 'Add one key to .env.local: OPENAI_API_KEY or XAI_API_KEY or PERPLEXITY_API_KEY or GEMINI_API_KEY',
+            step3: 'Optional: set AI_PROVIDER=openai|xai|perplexity|gemini',
             step4: 'Restart the dev server',
           },
         },
         { status: 503 }
-      );
-    }
-
-    // Check if it's a placeholder
-    if (
-      apiKey.includes('paste_your') ||
-      apiKey.includes('your_new') ||
-      apiKey.includes('AIza') === false
-    ) {
-      return NextResponse.json(
-        {
-          status: 'error',
-          error: 'Gemini API key appears to be invalid or placeholder',
-          code: 'INVALID_API_KEY_FORMAT',
-          hint: 'API key should start with "AIza"',
-          fix: 'Get a valid key from https://aistudio.google.com/apikey',
-        },
-        { status: 400 }
       );
     }
 
@@ -68,11 +50,10 @@ export async function GET() {
       return NextResponse.json(
         {
           status: 'ok',
-          message: 'Gemini API (OpenAI-Compatible) is working correctly',
+          message: 'AI provider is working correctly',
           details: {
             apiKeyConfigured: true,
-            baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-            model: 'gemini-2.0-flash',
+            provider: aiStatus.provider,
             testContent: result.substring(0, 200) + '...',
             timestamp: new Date().toISOString(),
           },
@@ -89,20 +70,19 @@ export async function GET() {
 
       if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
         errorCode = 'INVALID_API_KEY';
-        suggestion = 'API key is invalid or revoked. Generate a new one at https://aistudio.google.com/apikey';
+        suggestion = 'API key is invalid or revoked. Regenerate the provider key and update .env.local';
       } else if (errorMessage.includes('403') || errorMessage.includes('Forbidden')) {
         errorCode = 'PERMISSION_DENIED';
-        suggestion = 'Account does not have permission. Check if Gemini API is enabled in Google Cloud Console';
+        suggestion = 'Account does not have permission for the selected provider or model.';
       } else if (errorMessage.includes('429') || errorMessage.includes('quota')) {
         errorCode = 'QUOTA_EXCEEDED';
-        suggestion = 'API quota exceeded. Wait a few minutes or check billing in Google Cloud Console';
+        suggestion = 'API quota exceeded. Wait a few minutes or check billing/limits.';
       } else if (errorMessage.includes('404') || errorMessage.includes('not found')) {
         errorCode = 'MODEL_NOT_FOUND';
-        suggestion =
-          'Model not available for your account. Fallback models will be used: gemini-1.5-pro, gemini-pro';
+        suggestion = 'Model not available for your account. Try a different provider or model tier.';
       } else if (errorMessage.includes('500')) {
         errorCode = 'SERVER_ERROR';
-        suggestion = 'Google Gemini API is having issues. Try again in a few moments';
+        suggestion = 'Provider service is having issues. Try again in a few moments.';
       }
 
       return NextResponse.json(

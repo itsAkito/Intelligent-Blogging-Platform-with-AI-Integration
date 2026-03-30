@@ -1,38 +1,120 @@
 import OpenAI from 'openai';
 import { geminiRequestQueue } from './request-queue';
 
-// Initialize OpenAI client with Gemini endpoint
-// Uses OpenAI-compatible API with Gemini models
-const apiKey = process.env.GEMINI_API_KEY;
+type AIProvider = 'openai' | 'xai' | 'perplexity' | 'gemini' | 'groq';
 
-if (!apiKey) {
-  throw new Error('GEMINI_API_KEY is not configured in environment variables. Please add it to .env.local');
+function getConfiguredProvider(): { provider: AIProvider; apiKey: string; baseURL?: string } | null {
+  const explicit = (process.env.AI_PROVIDER || '').toLowerCase();
+
+  if (explicit === 'groq' && process.env.GROQ_API_KEY) {
+    return { provider: 'groq', apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' };
+  }
+  if (explicit === 'openai' && process.env.OPENAI_API_KEY) {
+    return { provider: 'openai', apiKey: process.env.OPENAI_API_KEY };
+  }
+  if (explicit === 'xai' && process.env.XAI_API_KEY) {
+    return { provider: 'xai', apiKey: process.env.XAI_API_KEY, baseURL: 'https://api.x.ai/v1' };
+  }
+  if (explicit === 'perplexity' && process.env.PERPLEXITY_API_KEY) {
+    return { provider: 'perplexity', apiKey: process.env.PERPLEXITY_API_KEY, baseURL: 'https://api.perplexity.ai' };
+  }
+  if (explicit === 'gemini' && process.env.GEMINI_API_KEY) {
+    return {
+      provider: 'gemini',
+      apiKey: process.env.GEMINI_API_KEY,
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+    };
+  }
+
+  // Auto fallback order if AI_PROVIDER is not set.
+  if (process.env.GROQ_API_KEY) {
+    return { provider: 'groq', apiKey: process.env.GROQ_API_KEY, baseURL: 'https://api.groq.com/openai/v1' };
+  }
+  if (process.env.OPENAI_API_KEY) {
+    return { provider: 'openai', apiKey: process.env.OPENAI_API_KEY };
+  }
+  if (process.env.XAI_API_KEY) {
+    return { provider: 'xai', apiKey: process.env.XAI_API_KEY, baseURL: 'https://api.x.ai/v1' };
+  }
+  if (process.env.PERPLEXITY_API_KEY) {
+    return { provider: 'perplexity', apiKey: process.env.PERPLEXITY_API_KEY, baseURL: 'https://api.perplexity.ai' };
+  }
+  if (process.env.GEMINI_API_KEY) {
+    return {
+      provider: 'gemini',
+      apiKey: process.env.GEMINI_API_KEY,
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+    };
+  }
+
+  return null;
 }
 
-const openai = new OpenAI({
-  apiKey: apiKey,
-  baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-});
+export function getAIProviderStatus() {
+  const configured = getConfiguredProvider();
+  return {
+    configured: !!configured,
+    provider: configured?.provider || null,
+  };
+}
+
+function getAIClient(): { client: OpenAI; provider: AIProvider } {
+  const configured = getConfiguredProvider();
+  if (!configured) {
+    throw new Error('No AI provider configured. Set OPENAI_API_KEY, XAI_API_KEY, PERPLEXITY_API_KEY, or GEMINI_API_KEY.');
+  }
+
+  const client = new OpenAI({
+    apiKey: configured.apiKey,
+    baseURL: configured.baseURL,
+  });
+
+  return { client, provider: configured.provider };
+}
 
 type ModelType = 'flash' | 'pro' | 'thinking' | 'default';
 
 // Get model name based on preference
-function getModelName(preference: ModelType = 'default'): string {
+function getModelName(provider: AIProvider, preference: ModelType = 'default'): string {
+  if (provider === 'openai') {
+    if (preference === 'flash') return 'gpt-4.1-mini';
+    return 'gpt-4.1';
+  }
+
+  if (provider === 'xai') {
+    if (preference === 'flash') return 'grok-3-mini';
+    return 'grok-3';
+  }
+
+  if (provider === 'perplexity') {
+    if (preference === 'flash') return 'sonar';
+    return 'sonar-pro';
+  }
+
+  if (provider === 'groq') {
+    if (preference === 'flash') return 'llama-3.1-8b-instant';
+    return 'llama-3.3-70b-versatile';
+  }
+
+  // Gemini fallback
   switch (preference) {
     case 'pro':
     case 'thinking':
-      return 'gemini-2.0-pro'; // Best quality for editorial content
+      return 'gemini-2.5-pro';
     case 'flash':
-      return 'gemini-2.0-flash'; // Faster, cheaper alternative
-    case 'default':
+      return 'gemini-2.0-flash';
     default:
-      return 'gemini-2.0-flash'; // Most stable for free tier in 2026
+      return 'gemini-2.0-flash';
   }
 }
 
 // Get fallback model name
-function getFallbackModelName(): string {
-  return 'gemini-2.5-pro'; // Fallback option
+function getFallbackModelName(provider: AIProvider): string {
+  if (provider === 'openai') return 'gpt-4.1-mini';
+  if (provider === 'xai') return 'grok-3-mini';
+  if (provider === 'perplexity') return 'sonar';
+  if (provider === 'groq') return 'llama-3.1-8b-instant';
+  return 'gemini-2.5-pro';
 }
 
 export async function generateBlogContent(
@@ -55,14 +137,15 @@ IMPORTANT REQUIREMENTS:
 The tone should be ${tone}. Be comprehensive, informative, and engaging.
 Format the entire response in markdown with proper structure.`;
 
-  const modelName = getModelName(modelPreference);
+  const { client, provider } = getAIClient();
+  const modelName = getModelName(provider, modelPreference);
 
   // Queue the request with automatic rate limiting and retry
   return geminiRequestQueue.enqueue(async () => {
     try {
       console.log(`🚀 Queued: Generating blog content with ${modelName}...`);
       
-      const response = await openai.chat.completions.create({
+      const response = await client.chat.completions.create({
         model: modelName,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -86,10 +169,10 @@ Format the entire response in markdown with proper structure.`;
 
       // Try fallback model
       try {
-        const fallbackModel = getFallbackModelName();
+        const fallbackModel = getFallbackModelName(provider);
         console.log(`🔄 Using ${fallbackModel} as fallback...`);
 
-        const response = await openai.chat.completions.create({
+        const response = await client.chat.completions.create({
           model: fallbackModel,
           messages: [
             { role: 'system', content: systemPrompt },
@@ -130,11 +213,12 @@ export async function generateBlogTitle(
   topic: string,
   modelPreference: ModelType = 'default'
 ) {
-  const modelName = getModelName(modelPreference);
+  const { client, provider } = getAIClient();
+  const modelName = getModelName(provider, modelPreference);
 
   return geminiRequestQueue.enqueue(async () => {
     try {
-      const response = await openai.chat.completions.create({
+      const response = await client.chat.completions.create({
         model: modelName,
         messages: [
           {
@@ -156,8 +240,8 @@ export async function generateBlogTitle(
     } catch (error: any) {
       console.warn(`${modelName} title generation failed, trying fallback...`, error.message);
       try {
-        const fallbackModel = getFallbackModelName();
-        const response = await openai.chat.completions.create({
+        const fallbackModel = getFallbackModelName(provider);
+        const response = await client.chat.completions.create({
           model: fallbackModel,
           messages: [
             {
@@ -189,11 +273,12 @@ export async function generateBlogExcerpt(
   content: string,
   modelPreference: ModelType = 'default'
 ) {
-  const modelName = getModelName(modelPreference);
+  const { client, provider } = getAIClient();
+  const modelName = getModelName(provider, modelPreference);
 
   return geminiRequestQueue.enqueue(async () => {
     try {
-      const response = await openai.chat.completions.create({
+      const response = await client.chat.completions.create({
         model: modelName,
         messages: [
           {
@@ -226,11 +311,12 @@ export async function generateSyntheticInsight(
   content: string,
   modelPreference: ModelType = 'default'
 ) {
-  const modelName = getModelName(modelPreference);
+  const { client, provider } = getAIClient();
+  const modelName = getModelName(provider, modelPreference);
 
   return geminiRequestQueue.enqueue(async () => {
     try {
-      const response = await openai.chat.completions.create({
+      const response = await client.chat.completions.create({
         model: modelName,
         messages: [
           {
@@ -284,12 +370,13 @@ IMPORTANT REQUIREMENTS:
 The tone should be ${tone}. Be comprehensive, informative, and engaging.
 Format the entire response in markdown with proper structure.`;
 
+  const { client, provider } = getAIClient();
   return geminiRequestQueue.enqueue(async () => {
     try {
-      console.log(`🚀 Queued: Starting streaming content generation with ${getModelName(modelPreference)}...`);
+      console.log(`🚀 Queued: Starting streaming content generation with ${getModelName(provider, modelPreference)}...`);
 
-      const stream = await openai.chat.completions.create({
-        model: getModelName(modelPreference),
+      const stream = await client.chat.completions.create({
+        model: getModelName(provider, modelPreference),
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: `Write about: ${prompt}` },

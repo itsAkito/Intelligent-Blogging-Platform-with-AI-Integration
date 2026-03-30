@@ -1,26 +1,58 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
+
+type LikeRow = { user_id: string; created_at?: string | null };
+
+const LIKE_TABLES = ['post_likes', 'likes'] as const;
+
+const isMissingTableError = (error: unknown) => {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+  const message = typeof error === 'object' && error !== null ? (error as { message?: string }).message : undefined;
+  return code === 'PGRST205' || (typeof message === 'string' && message.includes('Could not find the table'));
+};
+
+async function queryLikesTable<T>(run: (table: (typeof LIKE_TABLES)[number]) => Promise<{ data: T | null; error: unknown }>) {
+  let lastError: unknown = null;
+
+  for (const table of LIKE_TABLES) {
+    const result = await run(table);
+    if (!result.error) {
+      return { table, data: result.data };
+    }
+
+    if (isMissingTableError(result.error)) {
+      lastError = result.error;
+      continue;
+    }
+
+    throw result.error;
+  }
+
+  throw lastError ?? new Error('Like table not found');
+}
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const postId = request.nextUrl.searchParams.get('post_id');
+    const userId = await getAuthUserId(request);
 
     if (!postId) {
       return NextResponse.json({ error: 'post_id is required' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
-      .from('post_likes')
-      .select('user_id, profiles(name, email, avatar_url)')
-      .eq('post_id', postId);
+    const likeResult = await queryLikesTable<LikeRow[]>(async (table) =>
+      supabase.from(table).select('user_id, created_at').eq('post_id', postId)
+    );
 
-    if (error) throw error;
+    const likes = likeResult.data || [];
+    const likedByCurrentUser = !!userId && likes.some((like) => like.user_id === userId);
 
     return NextResponse.json({
-      likes: data?.map(like => ({ ...like.profiles, likedAt: like.user_id })) || [],
-      count: data?.length || 0,
-      likedByCurrentUser: false // Will be set by client if needed
+      likes,
+      count: likes.length,
+      likedByCurrentUser,
     });
   } catch (error) {
     console.error('Error fetching likes:', error);
@@ -34,23 +66,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: authData } = await supabase.auth.getUser();
-
-    const userId = authData?.user?.id || request.headers.get('app-user-id');
+    const userId = await getAuthUserId(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { postId } = await request.json();
-
     if (!postId) {
-      return NextResponse.json(
-        { error: 'postId is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'postId is required' }, { status: 400 });
     }
 
-    // First, get the post to find the author
     const { data: postData, error: postError } = await supabase
       .from('posts')
       .select('author_id')
@@ -61,31 +86,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
-    // Insert like
-    const { data, error } = await supabase
-      .from('post_likes')
-      .insert({ post_id: postId, user_id: userId })
-      .select()
-      .single();
-
-    if (error && error.code !== '23505') {
+    const insertResult = await queryLikesTable(async (table) =>
+      supabase.from(table).insert({ post_id: postId, user_id: userId }).select('user_id, created_at').single()
+    ).catch(async (error) => {
+      const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+      if (code === '23505') {
+        return { table: 'post_likes' as const, data: null };
+      }
       throw error;
-    }
+    });
 
-    // Get updated like count
-    const { count } = await supabase
-      .from('post_likes')
-      .select('*', { count: 'exact', head: true })
-      .eq('post_id', postId);
+    const countResult = await queryLikesTable<LikeRow[]>(async (table) =>
+      supabase.from(table).select('user_id').eq('post_id', postId)
+    );
 
-    // Create notification if the post author is different from the liker
+    const count = (countResult.data || []).length;
+
+    await supabase.from('posts').update({ likes_count: count }).eq('id', postId);
+
     try {
       if (userId !== postData.author_id) {
         await supabase.from('notifications').insert({
           user_id: postData.author_id,
-          triggered_by_user_id: userId,
+          related_user_id: userId,
           type: 'like',
-          post_id: postId,
+          related_post_id: postId,
           title: 'New Like',
           message: 'Someone liked your post',
         });
@@ -94,7 +119,7 @@ export async function POST(request: NextRequest) {
       console.warn('Failed to create like notification:', notificationError);
     }
 
-    return NextResponse.json({ success: true, like: data, count: count || 0 });
+    return NextResponse.json({ success: true, like: insertResult.data, count });
   } catch (error) {
     console.error('Error creating like:', error);
     return NextResponse.json(
@@ -107,37 +132,29 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { data: authData } = await supabase.auth.getUser();
-
-    const userId = authData?.user?.id || request.headers.get('app-user-id');
+    const userId = await getAuthUserId(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const postId = request.nextUrl.searchParams.get('post_id');
-
     if (!postId) {
-      return NextResponse.json(
-        { error: 'post_id is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'post_id is required' }, { status: 400 });
     }
 
-    const { error } = await supabase
-      .from('post_likes')
-      .delete()
-      .eq('post_id', postId)
-      .eq('user_id', userId);
+    await queryLikesTable(async (table) =>
+      supabase.from(table).delete().eq('post_id', postId).eq('user_id', userId)
+    );
 
-    if (error) throw error;
+    const countResult = await queryLikesTable<LikeRow[]>(async (table) =>
+      supabase.from(table).select('user_id').eq('post_id', postId)
+    );
 
-    // Get updated like count
-    const { count } = await supabase
-      .from('post_likes')
-      .select('*', { count: 'exact', head: true })
-      .eq('post_id', postId);
+    const count = (countResult.data || []).length;
 
-    return NextResponse.json({ success: true, count: count || 0 });
+    await supabase.from('posts').update({ likes_count: count }).eq('id', postId);
+
+    return NextResponse.json({ success: true, count });
   } catch (error) {
     console.error('Error deleting like:', error);
     return NextResponse.json(

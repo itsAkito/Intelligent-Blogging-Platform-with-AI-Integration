@@ -125,6 +125,7 @@ export default function JobsPage() {
                   />
                 </div>
                 <select
+                  suppressHydrationWarning
                   value={country}
                   onChange={(e) => { setCountry(e.target.value); setPage(1); }}
                   className="px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/15 text-sm text-on-surface outline-none focus:border-primary/40 transition-colors cursor-pointer"

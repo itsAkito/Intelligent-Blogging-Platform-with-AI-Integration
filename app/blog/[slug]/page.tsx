@@ -6,6 +6,7 @@ import Link from "next/link";
 import Navbar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/context/AuthContext";
+import { renderMarkdownBlocks } from "@/lib/markdown";
 
 interface Post {
   id: string;
@@ -17,6 +18,7 @@ interface Post {
   views: number;
   likes_count: number;
   comments_count: number;
+  liked_by_current_user?: boolean;
   ai_generated: boolean;
   created_at: string;
   profiles?: { id: string; name: string; avatar_url?: string };
@@ -53,6 +55,7 @@ export default function BlogPostPage() {
       if (res.ok) {
         const data = await res.json();
         setPost(data);
+        setLiked(!!data.liked_by_current_user);
       }
     } catch (err) {
       console.error("Failed to load post:", err);
@@ -93,8 +96,9 @@ export default function BlogPostPage() {
         // Unlike
         const res = await fetch(`/api/likes?post_id=${post.id}`, { method: "DELETE" });
         if (res.ok) {
+          const data = await res.json();
           setLiked(false);
-          setPost({ ...post, likes_count: Math.max(0, post.likes_count - 1) });
+          setPost({ ...post, likes_count: data.count ?? Math.max(0, post.likes_count - 1) });
         }
       } else {
         // Like
@@ -106,7 +110,7 @@ export default function BlogPostPage() {
         if (res.ok) {
           const data = await res.json();
           setLiked(true);
-          setPost({ ...post, likes_count: post.likes_count + 1 });
+          setPost({ ...post, likes_count: data.count ?? post.likes_count + 1 });
         }
       }
     } catch (err) {
@@ -140,6 +144,7 @@ export default function BlogPostPage() {
       if (res.ok) {
         const { comment } = await res.json();
         setComments([...comments, comment]);
+        setPost((prev) => prev ? { ...prev, comments_count: (prev.comments_count || 0) + 1 } : prev);
         setCommentContent("");
         setCommentSuccess("Comment posted!");
         setTimeout(() => setCommentSuccess(""), 3000);
@@ -147,15 +152,9 @@ export default function BlogPostPage() {
         let errorMessage = "Unknown error";
         try {
           const errorData = await res.json();
-          console.error("Comment error response:", errorData);
           errorMessage = errorData.error || errorData.message || `Server error (${res.status})`;
-          if (errorData.details) {
-            console.error("Error details:", errorData.details);
-          }
         } catch (parseError) {
           console.error("Failed to parse error response:", parseError);
-          console.error("Raw response status:", res.status);
-          console.error("Raw response headers:", Object.fromEntries(res.headers.entries()));
           errorMessage = `Server error (${res.status}): Unable to parse error response`;
         }
         alert(`Failed to post comment: ${errorMessage}`);
@@ -208,7 +207,7 @@ export default function BlogPostPage() {
       <main className="min-h-screen bg-background pt-20 pb-16">
         {/* Cover Image */}
         {post.cover_image_url && (
-          <div className="w-full h-[400px] relative overflow-hidden">
+          <div className="w-full h-100 relative overflow-hidden">
             <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-background z-10"></div>
             <img src={post.cover_image_url} alt={post.title} className="w-full h-full object-cover" />
           </div>
@@ -270,15 +269,15 @@ export default function BlogPostPage() {
                 </button>
                 <span className="flex items-center gap-1">
                   <span className="material-symbols-outlined text-sm">chat_bubble</span>
-                  {comments.length} comments
+                  {post.comments_count || comments.length} comments
                 </span>
               </div>
             </div>
           </header>
 
           {/* Content */}
-          <div className="mt-10 prose prose-invert prose-lg max-w-none text-on-surface-variant leading-relaxed whitespace-pre-wrap">
-            {post.content}
+          <div className="mt-10 prose prose-invert prose-lg max-w-none text-on-surface-variant leading-relaxed">
+            {renderMarkdownBlocks(post.content)}
           </div>
 
           {/* Comments Section */}

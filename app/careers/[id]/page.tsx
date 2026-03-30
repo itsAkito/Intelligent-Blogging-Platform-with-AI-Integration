@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,6 +33,7 @@ interface Job {
 export default function JobDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const { isAuthenticated } = useAuth();
   const jobId = params?.id as string;
 
   const [job, setJob] = useState<Job | null>(null);
@@ -77,6 +79,12 @@ export default function JobDetailPage() {
   // Handle form submission
   const handleSubmitApplication = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!isAuthenticated) {
+      router.push(`/auth?redirect=${encodeURIComponent(`/careers/${jobId}`)}`);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -91,6 +99,7 @@ export default function JobDetailPage() {
       const response = await fetch(`/api/arjuna/jobs/${jobId}/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           fullName: formData.fullName,
           email: formData.email,
@@ -102,11 +111,15 @@ export default function JobDetailPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        if (response.status === 401) {
+          router.push(`/auth?redirect=${encodeURIComponent(`/careers/${jobId}`)}`);
+          return;
+        }
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || 'Failed to submit application');
       }
 
-      const data = await response.json();
+      await response.json();
 
       setSuccessMessage("Application submitted successfully! We'll review it and get back to you soon.");
       setFormData({ fullName: "", email: "", phone: "", coverLetter: "", linkedinUrl: "", portfolioUrl: "" });
@@ -191,7 +204,7 @@ export default function JobDetailPage() {
                 )}
 
                 {/* Info */}
-                <div className="flex-grow">
+                <div className="grow">
                   <h1 className="text-4xl font-bold font-headline mb-2">{job.title}</h1>
                   <p className="text-lg text-on-surface-variant font-semibold mb-4">{job.company_name}</p>
 
@@ -233,7 +246,13 @@ export default function JobDetailPage() {
                   <Button
                     size="lg"
                     className="bg-primary text-on-primary hover:bg-primary/90 font-bold w-full md:w-auto"
-                    onClick={() => setShowApplicationForm(!showApplicationForm)}
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        router.push(`/auth?redirect=${encodeURIComponent(`/careers/${jobId}`)}`);
+                        return;
+                      }
+                      setShowApplicationForm(!showApplicationForm);
+                    }}
                   >
                     <span className="material-symbols-outlined mr-2">mail</span>
                     {showApplicationForm ? "Close Application" : "Apply Now"}

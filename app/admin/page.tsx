@@ -60,15 +60,18 @@ export default function AdminPage() {
   }, [user, isAdmin, loading, router]);
 
   useEffect(() => {
+    if (loading || !user || !isAdmin) {
+      return;
+    }
+
     const fetchStats = async () => {
       try {
-        const [usersRes, postsRes, commentsRes, analyticsRes, jobsRes, subscriptionsRes] = await Promise.all([
+        const [usersRes, postsRes, commentsRes, analyticsRes, jobsRes] = await Promise.all([
           fetch("/api/admin/users"),
           fetch("/api/posts?limit=100"),
           fetch("/api/comments?limit=50"),
           fetch("/api/analytics?timeframe=7d"),
           fetch("/api/arjuna/jobs?limit=100"),
-          fetch("/api/subscriptions?plansOnly=false"),
         ]);
 
         const usersData = usersRes.ok ? await usersRes.json() : {};
@@ -76,7 +79,6 @@ export default function AdminPage() {
         const commentsData = commentsRes.ok ? await commentsRes.json() : {};
         const analyticsData = analyticsRes.ok ? await analyticsRes.json() : {};
         const jobsData = jobsRes.ok ? await jobsRes.json() : {};
-        const subscriptionsData = subscriptionsRes.ok ? await subscriptionsRes.json() : {};
 
         const allUsers = usersData.users || [];
         const allPosts = postsData.posts || [];
@@ -87,7 +89,7 @@ export default function AdminPage() {
           totalUsers: allUsers.length,
           totalPosts: allPosts.length,
           totalComments: allComments.length,
-          activeSubscriptions: subscriptionsData.subscription?.plan_id ? 1 : 0,
+          activeSubscriptions: analyticsData.summary?.activeSubscriptions || 0,
           jobApplications: analyticsData.summary?.jobApplicationsThisPeriod || 0,
           openJobs: allJobs.length,
           systemHealth: 98.7,
@@ -141,7 +143,7 @@ export default function AdminPage() {
     };
 
     fetchStats();
-  }, []);
+  }, [loading, user, isAdmin]);
 
   const statCards = [
     { label: "Total Users", value: stats.totalUsers.toLocaleString(), icon: "group", change: `+${stats.totalUsers > 0 ? Math.floor(Math.random() * 20) : 0}%`, color: "text-primary" },
@@ -181,7 +183,7 @@ export default function AdminPage() {
         {/* Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-10">
           {statCards.map((card) => (
-            <Card key={card.label} className="bg-surface-container-low/50 backdrop-blur border-outline-variant/10">
+            <Card key={card.label} className="bg-white/4 backdrop-blur-xl border-white/10 shadow-xl shadow-black/20 hover:bg-white/8 hover:border-primary/20 transition-all duration-300">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className={`material-symbols-outlined text-sm ${card.color}`}>{card.icon}</span>
@@ -198,7 +200,7 @@ export default function AdminPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Comments */}
-          <Card className="lg:col-span-2 bg-surface-container-low/50 backdrop-blur border-outline-variant/10 overflow-hidden">
+          <Card className="lg:col-span-2 bg-white/4 backdrop-blur-xl border-white/10 shadow-xl shadow-black/20 overflow-hidden">
             <div className="p-6 border-b border-outline-variant/10">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold font-headline">Recent Comments & Activity</h3>
@@ -222,7 +224,7 @@ export default function AdminPage() {
                     </tr>
                   ) : recentComments.length > 0 ? (
                     recentComments.map((comment) => (
-                      <tr key={comment.id} className="border-b border-outline-variant/5 hover:bg-surface-container-low/50 transition-colors">
+                      <tr key={comment.id} className="border-b border-outline-variant/5 hover:bg-white/4 transition-colors">
                         <td className="px-6 py-4 text-xs font-semibold text-on-surface">{comment.author}</td>
                         <td className="px-6 py-4 text-xs text-on-surface-variant truncate max-w-xs">{comment.content}</td>
                         <td className="px-6 py-4 text-xs text-primary truncate max-w-xs">{comment.post}</td>
@@ -240,12 +242,12 @@ export default function AdminPage() {
           </Card>
 
           {/* Top AI Creators */}
-          <Card className="bg-surface-container-low/50 backdrop-blur border-outline-variant/10">
+          <Card className="bg-white/4 backdrop-blur-xl border-white/10 shadow-xl shadow-black/20">
             <CardContent className="p-6">
               <h3 className="text-lg font-bold font-headline mb-6">Top AI Creators</h3>
               <div className="space-y-4">
                 {topCreators.map((creator, idx) => (
-                  <div key={`creator-${idx}`} className="flex items-center gap-3 p-3 rounded-lg bg-surface-container-low hover:bg-surface-container transition-all">
+                  <div key={`creator-${idx}`} className="flex items-center gap-3 p-3 rounded-lg bg-white/3 border border-white/10 hover:bg-white/8 hover:border-primary/20 transition-all">
                     <Avatar className="h-10 w-10 rounded-lg">
                       <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${creator.name}`} />
                       <AvatarFallback className="rounded-lg">{creator.name.charAt(0)}</AvatarFallback>
@@ -264,7 +266,7 @@ export default function AdminPage() {
               <Separator className="my-6" />
 
               {/* Node Network Mini */}
-              <div className="p-4 rounded-lg bg-surface-container-low">
+              <div className="p-4 rounded-lg bg-white/3 border border-white/10">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="material-symbols-outlined text-primary text-sm">hub</span>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Node Network</span>
@@ -278,7 +280,7 @@ export default function AdminPage() {
                     { label: "Auth", status: "online" },
                     { label: "Queue", status: "degraded" },
                   ].map((node) => (
-                    <div key={node.label} className="flex items-center gap-1.5 p-2 rounded bg-surface-container">
+                    <div key={node.label} className="flex items-center gap-1.5 p-2 rounded bg-white/5 border border-white/10">
                       <div className={`w-1.5 h-1.5 rounded-full ${node.status === "online" ? "bg-green-400" : "bg-yellow-400"}`}></div>
                       <span className="text-[10px] font-medium">{node.label}</span>
                     </div>

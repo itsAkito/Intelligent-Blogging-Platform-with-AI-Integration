@@ -8,6 +8,11 @@ const isProtectedRoute = createRouteMatcher([
   "/api/posts(.*)",
 ]);
 
+const isAuthEntryRoute = createRouteMatcher([
+  "/auth(.*)",
+  "/admin/login(.*)",
+]);
+
 const isAdminRoute = createRouteMatcher([
   "/admin(.*)",
 ]);
@@ -23,35 +28,48 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     return NextResponse.next();
   }
 
+  // Keep auth entry pages accessible to OTP and Clerk users without forced redirects.
+  if (isAuthEntryRoute(req)) {
+    return NextResponse.next();
+  }
+
   if (isProtectedRoute(req)) {
     const { userId } = await auth();
+    const otpSessionToken = req.cookies.get("otp_session_token")?.value;
     
-    // Protect with Clerk
-    if (!userId) {
-      await auth.protect();
-      return;
+    // Allow either Clerk-authenticated sessions or OTP sessions.
+    if (!userId && !otpSessionToken) {
+      if (isAdminRoute(req)) {
+        return NextResponse.redirect(new URL("/admin/login", req.url));
+      }
+
+      const authUrl = new URL("/auth", req.url);
+      authUrl.searchParams.set("next", req.nextUrl.pathname);
+      return NextResponse.redirect(authUrl);
     }
 
     // Try to get user profile for role checking
     try {
-      const response = await fetch(new URL("/api/user/profile", req.url), {
-        headers: { 
-          cookie: req.headers.get("cookie") || "",
-          authorization: `Bearer ${req.headers.get("authorization") || ""}`,
-        },
-      });
+      if (userId) {
+        const response = await fetch(new URL("/api/user/profile", req.url), {
+          headers: {
+            cookie: req.headers.get("cookie") || "",
+            authorization: `Bearer ${req.headers.get("authorization") || ""}`,
+          },
+        });
 
-      if (response.ok) {
-        const profile = await response.json();
-        const userRole = profile.role || "user";
+        if (response.ok) {
+          const profile = await response.json();
+          const userRole = profile.role || "user";
 
-        // Admin trying to access user-only route - redirect to admin
-        if (userRole === "admin" && isUserRoute(req)) {
-          return NextResponse.redirect(new URL("/admin", req.url));
-        }
-        // Regular user trying to access admin route - redirect to dashboard
-        if (userRole !== "admin" && isAdminRoute(req)) {
-          return NextResponse.redirect(new URL("/dashboard", req.url));
+          // Admin trying to access user-only route - redirect to admin
+          if (userRole === "admin" && isUserRoute(req)) {
+            return NextResponse.redirect(new URL("/admin", req.url));
+          }
+          // Regular user trying to access admin route - redirect to dashboard
+          if (userRole !== "admin" && isAdminRoute(req)) {
+            return NextResponse.redirect(new URL("/dashboard", req.url));
+          }
         }
       }
     } catch (error) {

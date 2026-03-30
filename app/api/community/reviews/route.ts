@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
+const isMissingTableError = (error: unknown) => {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+  const message = typeof error === 'object' && error !== null ? (error as { message?: string }).message : undefined;
+  return code === 'PGRST205' || (typeof message === 'string' && message.includes('Could not find the table'));
+};
+
 // GET reviews
 export async function GET(request: NextRequest) {
   try {
@@ -21,11 +27,16 @@ export async function GET(request: NextRequest) {
         posts(id, title, slug)
       `)
       .order('created_at', { ascending: false })
-      .limit(parseInt(limit));
+      .limit(parseInt(limit, 10));
 
-    if (error) throw error;
+    if (error) {
+      if (isMissingTableError(error)) {
+        return NextResponse.json({ reviews: [], unavailable: true });
+      }
+      throw error;
+    }
 
-    const reviews = (data || []).map(r => ({
+    const reviews = (data || []).map((r) => ({
       id: r.id,
       rating: r.rating,
       comment: r.comment,
@@ -69,7 +80,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the post by slug
     const { data: post, error: postError } = await supabase
       .from('posts')
       .select('id')
@@ -80,7 +90,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
-    // Insert review
     const { data, error } = await supabase
       .from('post_reviews')
       .insert({
@@ -92,7 +101,12 @@ export async function POST(request: NextRequest) {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (isMissingTableError(error)) {
+        return NextResponse.json({ error: 'Reviews feature is not configured yet' }, { status: 503 });
+      }
+      throw error;
+    }
 
     return NextResponse.json({ review: data, success: true });
   } catch (error) {

@@ -4,19 +4,99 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  price_monthly: number;
+  price_annual: number;
+  features?: string[];
+}
+
+interface CurrentSubscription {
+  plan_id?: string;
+  subscription_plans?: SubscriptionPlan | null;
+}
 
 export default function PricingPage() {
   const { isAuthenticated } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [isAnnual, setIsAnnual] = useState(false);
   const [selectedTier, setSelectedTier] = useState(1); // Default to Professional
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [currentSubscription, setCurrentSubscription] = useState<CurrentSubscription | null>(null);
+  const [actionError, setActionError] = useState("");
+  const [actionLoading, setActionLoading] = useState<number | null>(null);
 
-  const tiers = [
+  const selectedPlanParam = searchParams.get("plan")?.toLowerCase() || "professional";
+
+  useEffect(() => {
+    if (selectedPlanParam.includes("contributor")) {
+      setSelectedTier(0);
+      return;
+    }
+    if (selectedPlanParam.includes("leader") || selectedPlanParam.includes("elite")) {
+      setSelectedTier(2);
+      return;
+    }
+    setSelectedTier(1);
+  }, [selectedPlanParam]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadPlans = async () => {
+      try {
+        const plansRes = await fetch("/api/subscriptions?plansOnly=true", {
+          credentials: "include",
+        });
+
+        if (plansRes.ok) {
+          const data = await plansRes.json();
+          if (isMounted) {
+            setPlans(data.plans || []);
+          }
+        }
+
+        if (isAuthenticated) {
+          const currentRes = await fetch("/api/subscriptions", {
+            credentials: "include",
+          });
+
+          if (currentRes.ok) {
+            const data = await currentRes.json();
+            if (isMounted) {
+              setCurrentSubscription(data.subscription || null);
+            }
+          }
+        } else if (isMounted) {
+          setCurrentSubscription(null);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setActionError(error instanceof Error ? error.message : "Unable to load plans right now.");
+        }
+      }
+    };
+
+    loadPlans();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated]);
+
+  const tiers = useMemo(() => [
     {
       id: 0,
+      planName: "Contributor",
       name: "The Contributor",
       description: "Perfect for starting the digital narrative.",
       price: "$0",
+      annualPrice: "$0",
       period: "/MO",
       features: [
         "Basic AI assistance",
@@ -25,13 +105,15 @@ export default function PricingPage() {
       ],
       cta: "START FREE",
       popular: false,
-      href: isAuthenticated ? "/editor" : "/auth",
+      successHref: "/editor",
     },
     {
       id: 1,
+      planName: "Professional",
       name: "The Professional",
       description: "For serious writers building a lasting brand.",
       price: "$29",
+      annualPrice: "$261",
       period: "/MO",
       badge: "BEST FOR YOU",
       features: [
@@ -42,13 +124,15 @@ export default function PricingPage() {
       ],
       cta: "GET PRO ACCESS",
       popular: true,
-      href: "/auth",
+      successHref: "/dashboard",
     },
     {
       id: 2,
+      planName: "Elite",
       name: "The Thought Leader",
       description: "The ultimate ecosystem for industry authorities.",
       price: "$89",
+      annualPrice: "$801",
       period: "/MO",
       features: [
         "Priority AI generation queue",
@@ -58,9 +142,79 @@ export default function PricingPage() {
       ],
       cta: "GO ELITE",
       popular: false,
-      href: "/auth",
+      successHref: "/inner-circle/join",
     },
-  ];
+  ], []);
+
+  const tiersWithPlanIds = useMemo(() => (
+    tiers.map((tier) => {
+      const matchedPlan = plans.find((plan) => plan.name.toLowerCase() === tier.planName.toLowerCase());
+      return {
+        ...tier,
+        planId: matchedPlan?.id,
+        price: matchedPlan ? `$${matchedPlan.price_monthly}` : tier.price,
+        annualPrice: matchedPlan ? `$${matchedPlan.price_annual}` : tier.annualPrice,
+        features: matchedPlan?.features?.length ? matchedPlan.features : tier.features,
+      };
+    })
+  ), [plans, tiers]);
+
+  const handlePlanAction = async (tierId: number) => {
+    const tier = tiersWithPlanIds.find((item) => item.id === tierId);
+
+    if (!tier) {
+      return;
+    }
+
+    setSelectedTier(tierId);
+    setActionError("");
+
+    if (!isAuthenticated) {
+      const targetPlan = tier.planName.toLowerCase();
+      router.push(`/auth?next=${encodeURIComponent(`/pricing?plan=${targetPlan}`)}`);
+      return;
+    }
+
+    if (tier.planName === "Contributor") {
+      router.push(tier.successHref);
+      return;
+    }
+
+    if (!tier.planId) {
+      setActionError("Subscription plans are not available yet. Please run the latest database migrations.");
+      return;
+    }
+
+    if (currentSubscription?.plan_id === tier.planId) {
+      router.push(tier.successHref);
+      return;
+    }
+
+    try {
+      setActionLoading(tierId);
+      const response = await fetch("/api/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          planId: tier.planId,
+          billingCycle: isAnnual ? "annual" : "monthly",
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update subscription.");
+      }
+
+      setCurrentSubscription(data);
+      router.push(tier.successHref);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Failed to update subscription.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -108,13 +262,24 @@ export default function PricingPage() {
               )}
             </div>
           </div>
+
+          {actionError && (
+            <p className="mx-auto max-w-2xl rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {actionError}
+            </p>
+          )}
         </div>
       </div>
 
       {/* Pricing Cards */}
       <div className="px-4 sm:px-6 lg:px-8 pb-20">
         <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8">
-          {tiers.map((tier) => (
+          {tiersWithPlanIds.map((tier) => {
+            const isCurrentPlan = currentSubscription?.plan_id === tier.planId;
+            const displayPrice = isAnnual ? tier.annualPrice : tier.price;
+            const displayPeriod = isAnnual ? "/YR" : tier.period;
+
+            return (
             <div
               key={tier.id}
               onClick={() => setSelectedTier(tier.id)}
@@ -150,21 +315,30 @@ export default function PricingPage() {
                 {/* Price */}
                 <div className="mb-8 pb-8 border-b border-zinc-700/50">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-5xl font-bold text-white font-headline">{tier.price}</span>
-                    <span className="text-zinc-400 text-sm">{tier.period}</span>
+                    <span className="text-5xl font-bold text-white font-headline">{displayPrice}</span>
+                    <span className="text-zinc-400 text-sm">{displayPeriod}</span>
                   </div>
                 </div>
 
                 {/* CTA Button */}
                 <Button
-                  asChild
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void handlePlanAction(tier.id);
+                  }}
+                  disabled={actionLoading === tier.id}
                   className={`w-full mb-8 font-bold py-6 text-sm font-headline rounded-lg transition-all uppercase tracking-wider ${
                     selectedTier === tier.id || tier.popular
                       ? "bg-linear-to-r from-blue-500 to-blue-600 text-white hover:shadow-lg hover:shadow-blue-500/50"
                       : "bg-zinc-700 text-white hover:bg-blue-600 hover:text-white"
                   }`}
                 >
-                  <Link href={tier.href}>{tier.cta}</Link>
+                  {actionLoading === tier.id
+                    ? "PROCESSING..."
+                    : isCurrentPlan
+                    ? "OPEN PLAN"
+                    : tier.cta}
                 </Button>
 
                 {/* Features List */}
@@ -182,7 +356,8 @@ export default function PricingPage() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -326,10 +501,11 @@ export default function PricingPage() {
           </h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button
-              asChild
+              type="button"
+              onClick={() => void handlePlanAction(selectedTier)}
               className="px-8 py-6 text-base font-bold bg-linear-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:shadow-lg hover:shadow-blue-500/50 uppercase tracking-wider font-headline"
             >
-              <Link href="/auth">START YOUR 14-DAY FREE TRIAL</Link>
+              {actionLoading === selectedTier ? "PROCESSING..." : "START YOUR 14-DAY FREE TRIAL"}
             </Button>
             <Button
               asChild

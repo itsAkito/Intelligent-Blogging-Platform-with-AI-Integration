@@ -16,8 +16,11 @@ function AuthContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const mode = searchParams.get("mode");
+  const nextParam = searchParams.get("next");
   const [showLogin, setShowLogin] = useState(true);
   const [authMethod, setAuthMethod] = useState<"clerk" | "otp">("clerk");
+
+  const nextPath = nextParam && nextParam.startsWith("/") ? nextParam : "/dashboard";
 
   // OTP state
   const [otpEmail, setOtpEmail] = useState("");
@@ -80,7 +83,7 @@ function AuthContent() {
         setOtpSuccess("Verified! Redirecting...");
         // Session is now stored in database with httpOnly cookie
         // AuthContext will load user on next page render
-        setTimeout(() => router.push("/"), 1000);
+        setTimeout(() => router.push(nextPath), 1000);
       } else {
         setOtpError(data.error || "Invalid code.");
       }
@@ -185,7 +188,7 @@ function AuthContent() {
                     },
                   }}
                   routing="hash"
-                  forceRedirectUrl="/dashboard"
+                  forceRedirectUrl={nextPath}
                 />
               ) : (
                 <SignUp
@@ -198,7 +201,7 @@ function AuthContent() {
                     },
                   }}
                   routing="hash"
-                  forceRedirectUrl="/dashboard"
+                  forceRedirectUrl={nextPath}
                 />
               )}
             </>

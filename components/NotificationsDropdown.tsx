@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
@@ -17,12 +17,25 @@ interface Notification {
   title: string;
   message?: string;
   post_id?: string;
+  related_post_id?: string;
+  action_url?: string;
   is_read: boolean;
   created_at: string;
-  triggered_by_user?: {
-    name: string;
-    avatar_url?: string;
+  related_user?: {
+    id?: string;
+    name?: string;
+    email?: string;
   };
+}
+
+function extractRequestId(actionUrl?: string): string | null {
+  if (!actionUrl || !actionUrl.startsWith("follow_request:")) return null;
+  return actionUrl.split(":")[1] || null;
+}
+
+function extractCollabPostId(actionUrl?: string): string | null {
+  if (!actionUrl || !actionUrl.startsWith("collab_invite:")) return null;
+  return actionUrl.split(":")[1] || null;
 }
 
 export default function NotificationsDropdown() {
@@ -32,38 +45,39 @@ export default function NotificationsDropdown() {
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Fetch notifications
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch("/api/notifications?limit=10");
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.notifications || []);
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isOpen) return;
-
-    const fetchNotifications = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch("/api/notifications?limit=10");
-        if (response.ok) {
-          const data = await response.json();
-          setNotifications(data.notifications || []);
-          setUnreadCount(data.unreadCount || 0);
-        }
-      } catch (error) {
-        console.error("Error fetching notifications:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchNotifications();
   }, [isOpen]);
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {
-      await fetch("/api/notifications", {
-        method: "PUT",
+      const response = await fetch("/api/notifications", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notificationId, isRead: true }),
+        body: JSON.stringify({ action: "mark-read", notificationId }),
       });
 
-      // Update local state
+      if (!response.ok) {
+        throw new Error("Failed to mark notification as read");
+      }
+
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
       );
@@ -73,14 +87,70 @@ export default function NotificationsDropdown() {
     }
   };
 
-  const handleNotificationClick = (notification: Notification) => {
-    handleMarkAsRead(notification.id);
+  const handleFollowRequestAction = async (
+    notification: Notification,
+    decision: "accept" | "reject"
+  ) => {
+    try {
+      const response = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "follow-request",
+          decision,
+          notificationId: notification.id,
+          requestId: extractRequestId(notification.action_url),
+        }),
+      });
 
-    // Route based on notification type
-    if (notification.post_id) {
-      router.push(`/blog/${notification.post_id}`);
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to process follow request");
+      }
+
+      setNotifications((prev) =>
+        prev.map((n) =>
+          n.id === notification.id
+            ? {
+                ...n,
+                is_read: true,
+                title: decision === "accept" ? "Follow request accepted" : "Follow request rejected",
+                message:
+                  decision === "accept"
+                    ? "You accepted this follow request."
+                    : "You rejected this follow request.",
+              }
+            : n
+        )
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error("Error handling follow request action:", error);
+    }
+  };
+
+  const handleNotificationClick = (notification: Notification) => {
+    if (!notification.is_read) {
+      handleMarkAsRead(notification.id);
+    }
+
+    if (notification.type === "collab_invite") {
+      const collabPostId = extractCollabPostId(notification.action_url) || notification.related_post_id;
+      if (collabPostId) {
+        router.push(`/editor?id=${collabPostId}&collab=1`);
+      } else {
+        router.push("/dashboard/collaboration");
+      }
+      setIsOpen(false);
+      return;
+    }
+
+    const postId = notification.related_post_id || notification.post_id;
+
+    if (postId) {
+      router.push(`/blog/${postId}`);
     } else if (notification.type === "follow_request") {
-      router.push("/dashboard/requests");
+      router.push("/dashboard/notifications");
     } else if (notification.type === "follow") {
       router.push("/dashboard");
     }
@@ -99,9 +169,11 @@ export default function NotificationsDropdown() {
       case "follow_request":
         return "person_add_question";
       case "mention":
-        return "at";
+        return "alternate_email";
       case "job_application":
         return "work";
+      case "collab_invite":
+        return "group_add";
       default:
         return "notifications";
     }
@@ -157,54 +229,84 @@ export default function NotificationsDropdown() {
           </div>
         ) : (
           <div className="divide-y divide-outline-variant/10">
-            {notifications.map((notification) => (
-              <button
-                key={notification.id}
-                onClick={() => handleNotificationClick(notification)}
-                className={`w-full px-4 py-3 text-left hover:bg-surface-container-low/50 transition-colors ${
-                  !notification.is_read ? "bg-primary/5" : ""
-                }`}
-              >
-                <div className="flex gap-3">
-                  {/* Icon */}
-                  <div className="shrink-0 mt-1">
-                    <span
-                      className={`material-symbols-outlined text-base ${
-                        !notification.is_read ? "text-primary" : "text-on-surface-variant"
-                      }`}
-                    >
-                      {getNotificationIcon(notification.type)}
-                    </span>
-                  </div>
+            {notifications.map((notification) => {
+              const showFollowActions =
+                notification.type === "follow_request" && !notification.is_read;
 
-                  {/* Content */}
-                  <div className="grow">
-                    <div className="flex items-start justify-between gap-2">
-                      <p
-                        className={`font-semibold text-sm ${
-                          !notification.is_read
-                            ? "text-on-surface"
-                            : "text-on-surface-variant"
-                        }`}
-                      >
-                        {notification.title}
-                      </p>
-                      {!notification.is_read && (
-                        <div className="shrink-0 w-2 h-2 rounded-full bg-primary mt-1" />
-                      )}
+              return (
+                <div
+                  key={notification.id}
+                  className={`w-full px-4 py-3 hover:bg-surface-container-low/50 transition-colors ${
+                    !notification.is_read ? "bg-primary/5" : ""
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleNotificationClick(notification)}
+                    className="w-full text-left"
+                  >
+                    <div className="flex gap-3">
+                      <div className="shrink-0 mt-1">
+                        <span
+                          className={`material-symbols-outlined text-base ${
+                            !notification.is_read ? "text-primary" : "text-on-surface-variant"
+                          }`}
+                        >
+                          {getNotificationIcon(notification.type)}
+                        </span>
+                      </div>
+
+                      <div className="grow">
+                        <div className="flex items-start justify-between gap-2">
+                          <p
+                            className={`font-semibold text-sm ${
+                              !notification.is_read
+                                ? "text-on-surface"
+                                : "text-on-surface-variant"
+                            }`}
+                          >
+                            {notification.title}
+                          </p>
+                          {!notification.is_read && (
+                            <div className="shrink-0 w-2 h-2 rounded-full bg-primary mt-1" />
+                          )}
+                        </div>
+                        {notification.message && (
+                          <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">
+                            {notification.message}
+                          </p>
+                        )}
+                        <p className="text-xs text-on-surface-variant/60 mt-1">
+                          {formatTime(notification.created_at)}
+                        </p>
+                      </div>
                     </div>
-                    {notification.message && (
-                      <p className="text-xs text-on-surface-variant mt-1 line-clamp-2">
-                        {notification.message}
-                      </p>
-                    )}
-                    <p className="text-xs text-on-surface-variant/60 mt-1">
-                      {formatTime(notification.created_at)}
-                    </p>
-                  </div>
+                  </button>
+
+                  {showFollowActions && (
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => handleFollowRequestAction(notification, "accept")}
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs"
+                        onClick={() => handleFollowRequestAction(notification, "reject")}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
 

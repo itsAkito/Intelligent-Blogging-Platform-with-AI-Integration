@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateBlogContentStream, generateSyntheticInsight } from '@/lib/gemini';
+import { generateBlogContentStream, generateSyntheticInsight, getAIProviderStatus } from '@/lib/gemini';
 import { isRateLimitError, isConfigError } from '@/lib/retry';
 
 /**
@@ -18,12 +18,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if Gemini API key is configured
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!geminiKey || geminiKey.includes('paste_your') || geminiKey.includes('your_new') || geminiKey.includes('your_api_key')) {
+    const aiStatus = getAIProviderStatus();
+    if (!aiStatus.configured) {
       return NextResponse.json(
         {
-          error: 'Gemini API key is not configured',
+          error: 'No AI provider key is configured',
           code: 'MISSING_API_KEY',
         },
         { status: 503 }
@@ -90,7 +89,7 @@ export async function POST(request: NextRequest) {
             status = 429; // This status won't be sent as HTTP status, but useful for client-side parsing
           } else if (isConfigError(error)) {
             errorCode = 'API_KEY_CONFIG_ERROR';
-            errorMessage = 'API Key configuration error. Please check your GEMINI_API_KEY.';
+            errorMessage = 'API key configuration error. Please check your AI provider keys.';
             status = 403;
           } else if (error.message && error.message.includes('No content generated')) {
             errorCode = 'EMPTY_RESPONSE';
@@ -139,7 +138,7 @@ export async function POST(request: NextRequest) {
       status = 429;
     } else if (isConfigError(error)) {
       errorCode = 'API_KEY_CONFIG_ERROR';
-      errorMessage = 'API Key configuration error. Please check your GEMINI_API_KEY.';
+      errorMessage = 'API key configuration error. Please check your AI provider keys.';
       status = 403;
     } else if (error.message && error.message.includes('No content generated')) {
       errorCode = 'EMPTY_RESPONSE';

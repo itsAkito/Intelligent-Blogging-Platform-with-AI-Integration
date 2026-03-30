@@ -13,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useRouter } from "next/navigation";
 
 export default function Navbar() {
   const { isAdmin, isAuthenticated, profile, user, signOut } = useAuth();
@@ -23,6 +22,22 @@ export default function Navbar() {
   // Determine if user is OTP-based (authenticated but not a Clerk user)
   const isOtpUser = isAuthenticated && !user?.id?.startsWith("user_");
 
+  const navLinks = isAuthenticated
+    ? [
+        { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+        { href: "/community", label: "Community", icon: "groups" },
+        { href: "/editor", label: "Write", icon: "edit_note" },
+        { href: "/careers", label: "Careers", icon: "work" },
+        { href: "/dashboard/insights", label: "Analytics", icon: "analytics" },
+        { href: "/innovation", label: "Innovation", icon: "rocket_launch" },
+      ]
+    : [
+        { href: "/", label: "About", icon: "info" },
+        { href: "/community", label: "Community", icon: "groups" },
+        { href: "/careers", label: "Careers", icon: "work" },
+        { href: "/innovation", label: "Innovation", icon: "rocket_launch" },
+      ];
+
   return (
     <>
       <header className="fixed top-0 w-full z-50 bg-[#0e0e0e]/60 backdrop-blur-xl shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] font-headline">
@@ -31,22 +46,17 @@ export default function Navbar() {
             <Link href="/" className="text-xl font-bold tracking-tighter bg-linear-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent">
               AiBlog
             </Link>
-            <div className="hidden md:flex gap-6 text-sm">
-              {isAuthenticated ? (
-                <>
-                  <Link href="/dashboard" className="text-zinc-400 hover:text-primary transition-colors font-medium">Dashboard</Link>
-                  <Link href="/community" className="text-zinc-400 hover:text-primary transition-colors font-medium">Community</Link>
-                  <Link href="/editor" className="text-zinc-400 hover:text-primary transition-colors font-medium">Write</Link>
-                  <Link href="/careers" className="text-zinc-400 hover:text-primary transition-colors font-medium">Careers</Link>
-                  <Link href="/dashboard/insights" className="text-zinc-400 hover:text-primary transition-colors font-medium">Analytics</Link>
-                </>
-              ) : (
-                <>
-                  <Link href="/" className="text-zinc-400 hover:text-primary transition-colors font-medium">About</Link>
-                  <Link href="/community" className="text-zinc-400 hover:text-primary transition-colors font-medium">Community</Link>
-                  <Link href="/careers" className="text-zinc-400 hover:text-primary transition-colors font-medium">Careers</Link>
-                </>
-              )}
+            <div className="hidden md:flex gap-3 text-sm">
+              {navLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-zinc-400 hover:text-primary transition-all font-medium rounded-full px-3 py-1.5 hover:bg-white/5 flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">{item.icon}</span>
+                  {item.label}
+                </Link>
+              ))}
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -120,7 +130,7 @@ export default function Navbar() {
                   />
                 )}
                 
-                <Button asChild className="px-5 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
+                <Button asChild className="px-5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
                   <Link href="/editor">Create Post</Link>
                 </Button>
               </>
@@ -129,7 +139,7 @@ export default function Navbar() {
                 <Button asChild variant="ghost" className="hidden sm:block text-sm font-semibold text-zinc-400 hover:text-white">
                   <Link href="/auth">Login</Link>
                 </Button>
-                <Button asChild className="px-5 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
+                <Button asChild className="px-5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
                   <Link href="/pricing">Get Started</Link>
                 </Button>
               </>
@@ -140,15 +150,29 @@ export default function Navbar() {
           </div>
         </nav>
         {menuOpen && (
-          <div className="md:hidden bg-surface-container-low border-t border-white/5 px-6 py-4 space-y-3">
-            {isAuthenticated ? (
+          <div className="md:hidden bg-surface-container-low border-t border-white/5 px-6 py-4 space-y-2">
+            {navLinks.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="text-sm text-zinc-300 hover:text-white rounded-lg px-2 py-2 hover:bg-white/5 transition-colors flex items-center gap-2"
+                onClick={() => setMenuOpen(false)}
+              >
+                <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                {item.label}
+              </Link>
+            ))}
+
+            {!isAuthenticated && (
+              <Link href="/auth" className="block text-sm text-primary font-semibold px-2 py-2" onClick={() => setMenuOpen(false)}>Login / Sign Up</Link>
+            )}
+
+            {isAuthenticated && isAdmin && (
+              <Link href="/admin" className="block text-sm text-zinc-300 hover:text-white rounded-lg px-2 py-2 hover:bg-white/5" onClick={() => setMenuOpen(false)}>Admin</Link>
+            )}
+
+            {isAuthenticated && (
               <>
-                <Link href="/dashboard" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Dashboard</Link>
-                <Link href="/community" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Community</Link>
-                <Link href="/editor" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Editor</Link>
-                <Link href="/careers" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Careers</Link>
-                <Link href="/dashboard/insights" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Analytics</Link>
-                {isAdmin && <Link href="/admin" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Admin</Link>}
                 <Separator className="my-2" />
                 <div className="pt-2">
                   {isOtpUser && profile ? (
@@ -163,13 +187,6 @@ export default function Navbar() {
                     <UserButton appearance={{ elements: { avatarBox: "w-8 h-8" } }} />
                   )}
                 </div>
-              </>
-            ) : (
-              <>
-                <Link href="/pricing" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Pricing</Link>
-                <Link href="/careers" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>Careers</Link>
-                <Link href="/about" className="block text-sm text-zinc-400 hover:text-white" onClick={() => setMenuOpen(false)}>About</Link>
-                <Link href="/auth" className="block text-sm text-primary font-semibold" onClick={() => setMenuOpen(false)}>Login / Sign Up</Link>
               </>
             )}
           </div>

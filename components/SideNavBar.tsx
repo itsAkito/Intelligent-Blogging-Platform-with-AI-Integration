@@ -24,7 +24,8 @@ export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
     { id: "community", label: "Community", icon: "people", href: "/community" },
     { id: "jobs", label: "Jobs", icon: "work", href: "/jobs" },
     { id: "home", label: "Career Hub", icon: "trending_up", href: "/dashboard/career" },
-    { id: "inner-circle", label: "Inner Circle", icon: "star", href: "/inner-circle" },
+    { id: "portfolio", label: "Portfolio", icon: "deployed_code", href: "/dashboard/portfolio" },
+    { id: "collaboration", label: "Collaboration", icon: "group", href: "/dashboard/collaboration" },
     { id: "resume", label: "Resume Builder", icon: "description", href: "/dashboard/resume" },
     { id: "settings", label: "Settings", icon: "settings", href: "/dashboard/settings" },
   ];

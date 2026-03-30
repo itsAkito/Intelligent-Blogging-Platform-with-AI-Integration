@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -36,7 +37,35 @@ export async function GET(
       console.warn(`Failed to increment views for post ${data.id}:`, rpcError);
     }
 
-    return NextResponse.json(data);
+    const currentUserId = await getAuthUserId(request);
+
+    const [{ count: likesCount }, { count: commentsCount }, likedRow] = await Promise.all([
+      supabase
+        .from('post_likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', data.id),
+      supabase
+        .from('comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', data.id),
+      currentUserId
+        ? supabase
+            .from('post_likes')
+            .select('id')
+            .eq('post_id', data.id)
+            .eq('user_id', currentUserId)
+            .maybeSingle()
+        : Promise.resolve({ data: null } as any),
+    ]);
+
+    const postWithLiveCounts = {
+      ...data,
+      likes_count: likesCount || 0,
+      comments_count: commentsCount || 0,
+      liked_by_current_user: !!likedRow?.data,
+    };
+
+    return NextResponse.json(postWithLiveCounts);
   } catch (error) {
     console.error('Get post error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -70,6 +99,35 @@ export async function PUT(
     }
     const supabase = await createClient();
     const { title, content, excerpt, image_url, cover_image_url, published, status, topic } = body;
+
+    const { data: existingPost, error: existingPostError } = await supabase
+      .from('posts')
+      .select('id,author_id,status')
+      .eq('id', id)
+      .single();
+
+    if (existingPostError || !existingPost) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    }
+
+    const isOwner = existingPost.author_id === userId;
+    if (!isOwner) {
+      const { data: collaborator, error: collaboratorError } = await supabase
+        .from('post_collaborators')
+        .select('id,permission,status')
+        .eq('post_id', id)
+        .eq('user_id', userId)
+        .eq('status', 'accepted')
+        .single();
+
+      if (collaboratorError || !collaborator || collaborator.permission !== 'editor') {
+        return NextResponse.json({ error: 'Forbidden: no edit permission for this draft' }, { status: 403 });
+      }
+
+      if ((status === 'published' || published === true) && existingPost.status !== 'published') {
+        return NextResponse.json({ error: 'Only owner can publish this post' }, { status: 403 });
+      }
+    }
 
     const updateData: Record<string, any> = {};
     if (title !== undefined) {
@@ -128,6 +186,20 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const supabase = await createClient();
+
+    const { data: existingPost, error: existingPostError } = await supabase
+      .from('posts')
+      .select('author_id')
+      .eq('id', id)
+      .single();
+
+    if (existingPostError || !existingPost) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    }
+
+    if (existingPost.author_id !== userId) {
+      return NextResponse.json({ error: 'Only owner can delete this post' }, { status: 403 });
+    }
 
     const { error } = await supabase.from('posts').delete().eq('id', id);
 

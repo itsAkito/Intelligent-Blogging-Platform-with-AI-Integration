@@ -6,14 +6,17 @@ import Link from "next/link";
 import Navbar from "@/components/NavBar";
 import SideNavBar from "@/components/SideNavBar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import FollowButton from "@/components/FollowButton";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuth } from "@/context/AuthContext";
 import { Heart, Share2 } from "lucide-react";
 
 interface ApiPost {
@@ -23,12 +26,32 @@ interface ApiPost {
   excerpt: string;
   views: number;
   likes_count: number;
+  comments_count?: number;
+  liked_by_current_user?: boolean;
   created_at: string;
   ai_generated: boolean;
   topic?: string;
   author_id?: string;
+  user_id?: string;
   cover_image_url?: string;
   profiles?: { id: string; name: string; avatar_url: string };
+}
+
+interface SidebarJob {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  applyUrl: string;
+}
+
+interface RecommendationPost {
+  id: string;
+  title: string;
+  slug?: string;
+  topic?: string;
+  reason: string;
+  score: number;
 }
 
 export default function CommunityPage() {
@@ -62,11 +85,18 @@ function CommunityLoadingSkeleton() {
 }
 
 function CommunityContent() {
+  const { user, isAuthenticated } = useAuth();
   const [apiPosts, setApiPosts] = useState<ApiPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState("latest");
   const [searchQuery, setSearchQuery] = useState("");
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [sidebarJobs, setSidebarJobs] = useState<SidebarJob[]>([]);
+  const [openCommentBoxes, setOpenCommentBoxes] = useState<Set<string>>(new Set());
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [commentSubmittingPostId, setCommentSubmittingPostId] = useState<string | null>(null);
+  const [commentErrors, setCommentErrors] = useState<Record<string, string>>({});
+  const [recommendations, setRecommendations] = useState<RecommendationPost[]>([]);
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -82,7 +112,14 @@ function CommunityContent() {
         const response = await fetch(`/api/posts?${params.toString()}`);
         if (response.ok) {
           const data = await response.json();
-          setApiPosts(data.posts || data || []);
+          const posts = data.posts || data || [];
+          setApiPosts(posts);
+
+          const likedFromServer = new Set<string>();
+          for (const post of posts) {
+            if (post.liked_by_current_user) likedFromServer.add(post.id);
+          }
+          setLikedPosts(likedFromServer);
         }
       } catch (err) {
         console.error("Failed to fetch community posts:", err);
@@ -92,6 +129,37 @@ function CommunityContent() {
     };
     fetchPosts();
   }, [searchParams]);
+
+  useEffect(() => {
+    const fetchSidebarJobs = async () => {
+      try {
+        const response = await fetch("/api/jobs?limit=3&query=software developer");
+        if (response.ok) {
+          const data = await response.json();
+          setSidebarJobs(data.jobs || []);
+        }
+      } catch (error) {
+        console.error("Failed to fetch sidebar jobs:", error);
+      }
+    };
+
+    fetchSidebarJobs();
+  }, []);
+
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      try {
+        const response = await fetch('/api/recommendations?limit=5');
+        if (!response.ok) return;
+        const data = await response.json();
+        setRecommendations(data.recommendations || []);
+      } catch (error) {
+        console.error('Failed to fetch recommendations:', error);
+      }
+    };
+
+    fetchRecommendations();
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,19 +179,90 @@ function CommunityContent() {
   const handleLike = async (e: React.MouseEvent, postId: string) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!isAuthenticated || !user?.id) {
+      router.push("/auth");
+      return;
+    }
+
+    const wasLiked = likedPosts.has(postId);
+    const optimisticLiked = new Set(likedPosts);
+
+    if (wasLiked) {
+      optimisticLiked.delete(postId);
+    } else {
+      optimisticLiked.add(postId);
+    }
+
+    setLikedPosts(optimisticLiked);
+    setApiPosts((current) =>
+      current.map((post) => {
+        if (post.id !== postId) return post;
+        const delta = wasLiked ? -1 : 1;
+        return {
+          ...post,
+          likes_count: Math.max(0, (post.likes_count || 0) + delta),
+          liked_by_current_user: !wasLiked,
+        };
+      })
+    );
+
     try {
-      const newLiked = new Set(likedPosts);
-      if (newLiked.has(postId)) {
-        newLiked.delete(postId);
-      } else {
-        newLiked.add(postId);
+      const response = await fetch(`/api/likes?post_id=${postId}`, {
+        method: wasLiked ? "DELETE" : "POST",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update like");
       }
-      setLikedPosts(newLiked);
-      
-      // Call API to track like
-      await fetch(`/api/blog/${postId}/like`, { method: 'POST' });
+
+      const payload = await response.json();
+      const confirmedLiked = Boolean(payload.likedByCurrentUser ?? !wasLiked);
+      const confirmedCount = typeof payload.likesCount === "number" ? payload.likesCount : undefined;
+
+      setLikedPosts((currentLiked) => {
+        const next = new Set(currentLiked);
+        if (confirmedLiked) {
+          next.add(postId);
+        } else {
+          next.delete(postId);
+        }
+        return next;
+      });
+
+      setApiPosts((current) =>
+        current.map((post) => {
+          if (post.id !== postId) return post;
+          return {
+            ...post,
+            likes_count: confirmedCount ?? post.likes_count,
+            liked_by_current_user: confirmedLiked,
+          };
+        })
+      );
     } catch (error) {
-      console.error('Failed to like post:', error);
+      console.error("Failed to like post:", error);
+      setLikedPosts((currentLiked) => {
+        const rollback = new Set(currentLiked);
+        if (wasLiked) {
+          rollback.add(postId);
+        } else {
+          rollback.delete(postId);
+        }
+        return rollback;
+      });
+
+      setApiPosts((current) =>
+        current.map((post) => {
+          if (post.id !== postId) return post;
+          const rollbackDelta = wasLiked ? 1 : -1;
+          return {
+            ...post,
+            likes_count: Math.max(0, (post.likes_count || 0) + rollbackDelta),
+            liked_by_current_user: wasLiked,
+          };
+        })
+      );
     }
   };
 
@@ -170,6 +309,75 @@ function CommunityContent() {
       });
     } catch (error) {
       console.error('Failed to track share:', error);
+    }
+  };
+
+  const toggleCommentComposer = (e: React.MouseEvent, postId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setOpenCommentBoxes((current) => {
+      const next = new Set(current);
+      if (next.has(postId)) {
+        next.delete(postId);
+      } else {
+        next.add(postId);
+      }
+      return next;
+    });
+  };
+
+  const submitInlineComment = async (e: React.MouseEvent, postId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const content = (commentDrafts[postId] || "").trim();
+
+    if (!content) {
+      setCommentErrors((current) => ({ ...current, [postId]: "Comment cannot be empty." }));
+      return;
+    }
+
+    if (!isAuthenticated) {
+      router.push("/auth");
+      return;
+    }
+
+    setCommentSubmittingPostId(postId);
+    setCommentErrors((current) => ({ ...current, [postId]: "" }));
+
+    try {
+      const response = await fetch("/api/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ postId, content }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || "Failed to post comment");
+      }
+
+      setCommentDrafts((current) => ({ ...current, [postId]: "" }));
+      setApiPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? { ...post, comments_count: (post.comments_count || 0) + 1 }
+            : post
+        )
+      );
+      setOpenCommentBoxes((current) => {
+        const next = new Set(current);
+        next.delete(postId);
+        return next;
+      });
+    } catch (error) {
+      setCommentErrors((current) => ({
+        ...current,
+        [postId]: error instanceof Error ? error.message : "Failed to post comment",
+      }));
+    } finally {
+      setCommentSubmittingPostId(null);
     }
   };
 
@@ -240,15 +448,15 @@ function CommunityContent() {
               {/* Sort Tabs */}
               <Tabs value={sortBy} onValueChange={setSortBy}>
                 <TabsList className="bg-surface-container border border-outline-variant/10 rounded-full p-1 h-auto">
-                  <TabsTrigger value="latest" className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none text-on-surface-variant">
+                  <TabsTrigger value="latest" className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-on-surface-variant hover:text-on-surface">
                     <span className="material-symbols-outlined text-sm mr-1.5">schedule</span>
                     Latest
                   </TabsTrigger>
-                  <TabsTrigger value="liked" className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none text-on-surface-variant">
+                  <TabsTrigger value="liked" className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-on-surface-variant hover:text-on-surface">
                     <span className="material-symbols-outlined text-sm mr-1.5">favorite</span>
                     Most Liked
                   </TabsTrigger>
-                  <TabsTrigger value="viewed" className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none text-on-surface-variant">
+                  <TabsTrigger value="viewed" className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-on-surface-variant hover:text-on-surface">
                     <span className="material-symbols-outlined text-sm mr-1.5">visibility</span>
                     Most Viewed
                   </TabsTrigger>
@@ -285,7 +493,7 @@ function CommunityContent() {
                 ) : sortedPosts.length > 0 ? (
                   sortedPosts.map((post) => (
                     <Link key={post.id} href={`/blog/${post.slug || post.id}`} className="block group">
-                      <Card className="bg-surface-container border-outline-variant/10 rounded-2xl overflow-hidden hover:border-primary/20 hover:shadow-xl hover:shadow-primary/5 transition-all duration-300">
+                      <Card className="bg-surface-container border-outline-variant/10 rounded-2xl overflow-hidden hover:border-primary/35 hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-0.5 transition-all duration-300">
                         {/* Author Header */}
                         <CardHeader className="p-5 pb-3">
                           <div className="flex items-center justify-between">
@@ -310,6 +518,9 @@ function CommunityContent() {
                                 </p>
                               </div>
                             </div>
+                            {post.author_id && post.author_id !== user?.id && (
+                              <FollowButton userId={post.author_id} size="sm" className="h-8" showStatusBadge />
+                            )}
                             <div className="flex gap-1.5">
                               {post.ai_generated && (
                                 <Badge className="bg-secondary/10 text-secondary border-secondary/20 text-[10px] font-bold">
@@ -371,6 +582,14 @@ function CommunityContent() {
                               <span className="material-symbols-outlined text-[16px]">visibility</span>
                               <span>{post.views}</span>
                             </div>
+                            <button
+                              onClick={(e) => toggleCommentComposer(e, post.id)}
+                              className="flex items-center gap-1.5 text-xs text-on-surface-variant px-2.5 py-1.5 rounded-lg hover:bg-primary/5 hover:text-primary transition-colors"
+                              title="Comment on this post"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">forum</span>
+                              <span>{post.comments_count || 0}</span>
+                            </button>
                           </div>
                           <button
                             onClick={(e) => handleShare(e, post)}
@@ -381,6 +600,49 @@ function CommunityContent() {
                             <span className="hidden sm:inline">Share</span>
                           </button>
                         </CardFooter>
+
+                        {openCommentBoxes.has(post.id) && (
+                          <div
+                            className="px-5 pb-4 border-t border-outline-variant/10 bg-surface-container-low/40"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                          >
+                            <div className="pt-3 space-y-2">
+                              <Textarea
+                                value={commentDrafts[post.id] || ""}
+                                onChange={(e) =>
+                                  setCommentDrafts((current) => ({
+                                    ...current,
+                                    [post.id]: e.target.value,
+                                  }))
+                                }
+                                placeholder={isAuthenticated ? "Add your comment..." : "Sign in to comment"}
+                                className="min-h-20 text-sm"
+                                disabled={!isAuthenticated || commentSubmittingPostId === post.id}
+                              />
+                              <div className="flex items-center justify-between">
+                                <button
+                                  className="text-xs text-on-surface-variant hover:text-on-surface"
+                                  onClick={(e) => toggleCommentComposer(e, post.id)}
+                                >
+                                  Cancel
+                                </button>
+                                <Button
+                                  size="sm"
+                                  onClick={(e) => submitInlineComment(e, post.id)}
+                                  disabled={!isAuthenticated || commentSubmittingPostId === post.id}
+                                >
+                                  {commentSubmittingPostId === post.id ? "Posting..." : "Post Comment"}
+                                </Button>
+                              </div>
+                              {commentErrors[post.id] && (
+                                <p className="text-[11px] text-red-400">{commentErrors[post.id]}</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </Card>
                     </Link>
                   ))
@@ -405,6 +667,35 @@ function CommunityContent() {
 
               {/* Right Sidebar */}
               <div className="space-y-6 hidden lg:block">
+                <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-lg shadow-black/20">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                      <h3 className="font-headline text-sm font-bold text-on-surface">Recommended For You</h3>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0 space-y-2.5">
+                    {recommendations.length === 0 ? (
+                      <p className="text-xs text-on-surface-variant">Like and comment on posts to get personalized picks.</p>
+                    ) : (
+                      recommendations.map((post) => (
+                        <Link
+                          key={post.id}
+                          href={`/blog/${post.slug || post.id}`}
+                          className="block rounded-lg border border-white/10 bg-white/2 hover:bg-white/8 hover:border-primary/25 transition-all px-3 py-2"
+                        >
+                          <p className="text-sm font-semibold text-on-surface line-clamp-1">{post.title}</p>
+                          <p className="text-[11px] text-on-surface-variant line-clamp-1 mt-1">{post.reason}</p>
+                          <div className="mt-1.5 flex items-center justify-between">
+                            <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">{post.topic || 'General'}</Badge>
+                            <span className="text-[10px] text-on-surface-variant">Score {post.score}</span>
+                          </div>
+                        </Link>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+
                 {/* Trending Topics */}
                 <Card className="bg-surface-container border-outline-variant/10 rounded-2xl">
                   <CardHeader className="pb-3">
@@ -479,18 +770,52 @@ function CommunityContent() {
                 </Card>
 
                 {/* Upgrade Card */}
+                <Card className="bg-surface-container border-outline-variant/10 rounded-2xl">
+                  <CardContent className="p-5 text-center">
+                    <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center mx-auto mb-3">
+                      <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>work</span>
+                    </div>
+                    <h4 className="font-headline font-bold text-sm text-on-surface mb-1">Jobs Snapshot</h4>
+                    <p className="text-[11px] text-on-surface-variant leading-relaxed mb-4">
+                      Discover active openings directly from your community workspace.
+                    </p>
+                    <div className="space-y-2 text-left mb-4">
+                      {sidebarJobs.slice(0, 3).map((job) => (
+                        <div key={job.id} className="rounded-lg border border-outline-variant/10 p-2.5 hover:border-secondary/30 transition-colors">
+                          <p className="text-xs font-semibold text-on-surface line-clamp-1">{job.title}</p>
+                          <p className="text-[10px] text-on-surface-variant line-clamp-1">{job.company}</p>
+                          <div className="mt-1 flex items-center justify-between gap-2">
+                            <p className="text-[10px] text-on-surface-variant line-clamp-1 flex items-center gap-1">
+                              <span className="material-symbols-outlined text-[13px]">location_on</span>
+                              {job.location}
+                            </p>
+                            <a href={job.applyUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] font-bold text-secondary hover:text-secondary/80 transition-colors">
+                              Apply Now
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <Link href="/jobs" className="block">
+                      <Button className="w-full rounded-lg bg-secondary text-on-secondary hover:bg-secondary/90 transition-all text-xs font-bold">
+                        View All Jobs
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+
                 <Card className="bg-linear-to-br from-primary/5 to-primary/10 border-primary/10 rounded-2xl">
                   <CardContent className="p-5 text-center">
                     <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
-                      <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>workspace_premium</span>
+                      <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>description</span>
                     </div>
-                    <h4 className="font-headline font-bold text-sm text-on-surface mb-1">Go Pro</h4>
+                    <h4 className="font-headline font-bold text-sm text-on-surface mb-1">Resume Builder</h4>
                     <p className="text-[11px] text-on-surface-variant leading-relaxed mb-4">
-                      Advanced AI tools, analytics, and priority support.
+                      Build your AI-assisted resume for full stack, frontend, backend, AI/ML, design, and more.
                     </p>
-                    <Link href="/pricing" className="block">
+                    <Link href="/dashboard/resume" className="block">
                       <Button className="w-full rounded-lg bg-primary text-on-primary hover:bg-primary/90 transition-all text-xs font-bold">
-                        Upgrade Now
+                        Build Resume
                       </Button>
                     </Link>
                   </CardContent>

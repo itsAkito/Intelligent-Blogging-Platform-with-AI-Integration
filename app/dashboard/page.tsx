@@ -23,6 +23,21 @@ interface Post {
   ai_generated: boolean;
 }
 
+interface Recommendation {
+  id: string;
+  title: string;
+  slug?: string;
+  topic?: string;
+  score: number;
+  reason: string;
+}
+
+interface PortfolioMilestone {
+  id: string;
+  label: string;
+  achieved: boolean;
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
@@ -32,13 +47,17 @@ export default function DashboardPage() {
     totalFollowers: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [portfolioMilestones, setPortfolioMilestones] = useState<PortfolioMilestone[]>([]);
 
   const fetchUserData = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const [postsRes, statsRes] = await Promise.all([
+      const [postsRes, statsRes, recommendationsRes, portfolioRes] = await Promise.all([
         fetch(`/api/posts?userId=${user.id}`),
         fetch("/api/user/stats"),
+        fetch('/api/recommendations?limit=4'),
+        fetch('/api/portfolio'),
       ]);
 
       if (postsRes.ok) {
@@ -55,6 +74,16 @@ export default function DashboardPage() {
           engagementRate: stats.engagementRate || 0,
           totalFollowers: stats.followersCount || 0,
         });
+      }
+
+      if (recommendationsRes.ok) {
+        const data = await recommendationsRes.json();
+        setRecommendations(data.recommendations || []);
+      }
+
+      if (portfolioRes.ok) {
+        const data = await portfolioRes.json();
+        setPortfolioMilestones(data.milestones || []);
       }
     } catch (err) {
       console.error("Failed to fetch dashboard data:", err);
@@ -101,7 +130,7 @@ export default function DashboardPage() {
 
             {/* Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
-              <Card className="bg-surface-container border-outline-variant/10 rounded-2xl">
+              <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20 hover:border-primary/20 transition-colors">
                 <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
                   <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                     <span className="material-symbols-outlined text-primary">visibility</span>
@@ -121,7 +150,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-surface-container border-outline-variant/10 rounded-2xl">
+              <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20 hover:border-primary/20 transition-colors">
                 <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
                   <div className="w-10 h-10 rounded-xl bg-secondary/10 flex items-center justify-center">
                     <span className="material-symbols-outlined text-secondary">bolt</span>
@@ -144,7 +173,7 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              <Card className="bg-surface-container border-outline-variant/10 rounded-2xl">
+              <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20 hover:border-primary/20 transition-colors">
                 <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
                   <div className="w-10 h-10 rounded-xl bg-tertiary/10 flex items-center justify-center">
                     <span className="material-symbols-outlined text-tertiary">group</span>
@@ -236,55 +265,40 @@ export default function DashboardPage() {
               {/* Career Milestones */}
               <div className="lg:col-span-2 space-y-5">
                 <h2 className="text-xl font-bold font-headline text-on-surface">Career Milestones</h2>
-                <Card className="bg-surface-container border-outline-variant/10 rounded-2xl">
+                <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20">
                   <CardContent className="p-5 space-y-5">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="material-symbols-outlined text-green-400 text-base" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-sm text-on-surface">Verified Authority</h4>
-                        <p className="text-xs text-on-surface-variant mt-0.5">50 high-impact publications</p>
-                        <Badge className="mt-1.5 bg-green-500/10 text-green-400 border-green-500/20 text-[10px]">Completed</Badge>
-                      </div>
-                    </div>
-
-                    <Separator className="bg-outline-variant/10" />
-
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="material-symbols-outlined text-primary text-base">public</span>
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-sm text-on-surface">Global Top 1% Reach</h4>
-                        <p className="text-xs text-on-surface-variant mt-0.5">500k monthly impressions target</p>
-                        <div className="mt-2">
-                          <div className="flex justify-between text-[10px] text-on-surface-variant mb-1">
-                            <span>71%</span><span>360K / 500K</span>
+                    {portfolioMilestones.length === 0 ? (
+                      <p className="text-sm text-on-surface-variant">Milestones will appear as you publish and engage.</p>
+                    ) : (
+                      portfolioMilestones.map((milestone, index) => (
+                        <div key={milestone.id}>
+                          <div className="flex items-start gap-3">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${milestone.achieved ? 'bg-green-500/10' : 'bg-primary/10'}`}>
+                              <span className={`material-symbols-outlined text-base ${milestone.achieved ? 'text-green-400' : 'text-primary'}`} style={{ fontVariationSettings: milestone.achieved ? "'FILL' 1" : "'FILL' 0" }}>
+                                {milestone.achieved ? 'verified' : 'flag'}
+                              </span>
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-sm text-on-surface">{milestone.label}</h4>
+                              <Badge className={`mt-1.5 text-[10px] ${milestone.achieved ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-primary/10 text-primary border-primary/20'}`}>
+                                {milestone.achieved ? 'Completed' : 'In Progress'}
+                              </Badge>
+                            </div>
                           </div>
-                          <div className="w-full h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
-                            <div className="h-full bg-linear-to-r from-primary to-primary-container rounded-full" style={{ width: "71%" }} />
-                          </div>
+                          {index < portfolioMilestones.length - 1 ? <Separator className="bg-outline-variant/10 mt-4" /> : null}
                         </div>
-                      </div>
-                    </div>
-
-                    <Separator className="bg-outline-variant/10" />
-
-                    <div className="flex items-start gap-3 opacity-40">
-                      <div className="w-8 h-8 rounded-full bg-surface-container-highest flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="material-symbols-outlined text-on-surface-variant text-base">auto_awesome</span>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-sm text-on-surface">Editorial Partner</h4>
-                        <p className="text-xs text-on-surface-variant mt-0.5">Invitation-only for leaders</p>
-                      </div>
-                    </div>
+                      ))
+                    )}
+                    <Link href="/dashboard/portfolio">
+                      <Button variant="outline" className="w-full border-white/15 bg-white/2 hover:bg-white/6">
+                        Open Full Portfolio
+                      </Button>
+                    </Link>
                   </CardContent>
                 </Card>
 
                 {/* AI Tip */}
-                <Card className="bg-linear-to-br from-secondary/5 to-tertiary/5 border-secondary/10 rounded-2xl overflow-hidden relative group">
+                <Card className="bg-linear-to-br from-secondary/5 to-tertiary/5 border-secondary/10 rounded-2xl overflow-hidden relative group backdrop-blur-xl">
                   <div className="absolute -right-6 -top-6 w-24 h-24 bg-secondary/10 blur-3xl group-hover:bg-secondary/15 transition-all duration-500" />
                   <CardContent className="p-5 relative">
                     <div className="flex items-center gap-2 mb-3">
@@ -294,6 +308,35 @@ export default function DashboardPage() {
                     <p className="text-sm text-on-surface-variant italic leading-relaxed">
                       &ldquo;Your recent articles on &apos;Synthetic Agency&apos; are seeing 40% higher retention. Consider expanding into a 4-part series.&rdquo;
                     </p>
+                  </CardContent>
+                </Card>
+
+                <Card className="bg-white/3 backdrop-blur-xl border-white/10 rounded-2xl shadow-xl shadow-black/20">
+                  <CardHeader className="pb-3">
+                    <h3 className="font-headline text-sm font-bold text-on-surface flex items-center gap-2">
+                      <span className="material-symbols-outlined text-primary text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>thumb_up</span>
+                      Personalized Recommendations
+                    </h3>
+                  </CardHeader>
+                  <CardContent className="pt-0 space-y-2">
+                    {recommendations.length === 0 ? (
+                      <p className="text-xs text-on-surface-variant">Engage with a few posts to unlock ranked recommendations.</p>
+                    ) : (
+                      recommendations.map((item) => (
+                        <Link
+                          key={item.id}
+                          href={`/blog/${item.slug || item.id}`}
+                          className="block rounded-lg border border-white/10 bg-white/2 px-3 py-2 hover:bg-white/8 hover:border-primary/25 transition-all"
+                        >
+                          <p className="text-sm font-semibold text-on-surface line-clamp-1">{item.title}</p>
+                          <p className="text-[11px] text-on-surface-variant line-clamp-1 mt-0.5">{item.reason}</p>
+                          <div className="mt-1.5 flex items-center justify-between">
+                            <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">{item.topic || 'General'}</Badge>
+                            <span className="text-[10px] text-on-surface-variant">Score {item.score}</span>
+                          </div>
+                        </Link>
+                      ))
+                    )}
                   </CardContent>
                 </Card>
               </div>

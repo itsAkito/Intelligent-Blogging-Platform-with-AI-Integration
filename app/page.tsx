@@ -25,6 +25,26 @@ interface FeaturedPost {
   views: number;
 }
 
+interface CommunityReview {
+  id: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+  author: {
+    name: string;
+    avatar_url?: string;
+  };
+}
+
+interface PublicStats {
+  display: {
+    activeCreators: string;
+    syntheticPosts: string;
+    monthlyReads: string;
+    industryMentors: string;
+  };
+}
+
 export default function Home() {
   useScrollReveal();
   const router = useRouter();
@@ -33,6 +53,8 @@ export default function Home() {
   const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [newsletterMessage, setNewsletterMessage] = useState("");
   const [featuredPosts, setFeaturedPosts] = useState<FeaturedPost[]>([]);
+  const [featuredReview, setFeaturedReview] = useState<CommunityReview | null>(null);
+  const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
 
   useEffect(() => {
     const fetchFeatured = async () => {
@@ -46,7 +68,31 @@ export default function Home() {
         console.error("Failed to fetch featured posts:", err);
       }
     };
+    const fetchFeaturedReview = async () => {
+      try {
+        const res = await fetch("/api/community/reviews?limit=1");
+        if (res.ok) {
+          const data = await res.json();
+          setFeaturedReview((data.reviews || [])[0] || null);
+        }
+      } catch (err) {
+        console.error("Failed to fetch featured review:", err);
+      }
+    };
+    const fetchPublicStats = async () => {
+      try {
+        const res = await fetch("/api/public/stats", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          setPublicStats(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch public stats:", err);
+      }
+    };
     fetchFeatured();
+    fetchFeaturedReview();
+    fetchPublicStats();
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -88,7 +134,7 @@ export default function Home() {
         {/* Hero Section */}
         <section className="relative min-h-[90vh] flex flex-col items-center justify-center px-4 sm:px-8 pt-28 pb-20">
           <div className="absolute inset-0 -z-10 overflow-hidden">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px]"></div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-150 h-150 bg-primary/5 rounded-full blur-[120px]"></div>
           </div>
 
           <div className="text-center max-w-4xl reveal-on-scroll">
@@ -108,7 +154,7 @@ export default function Home() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild className="px-8 py-3.5 h-auto bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">
+              <Button asChild className="px-8 py-3.5 h-auto bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">
                 <Link href="/pricing">Get Started Free</Link>
               </Button>
               <Button asChild variant="outline" className="px-8 py-3.5 h-auto font-bold rounded-xl">
@@ -120,9 +166,9 @@ export default function Home() {
             <form onSubmit={handleSearch} className="mt-12 max-w-xl mx-auto w-full">
               <div className="relative group">
                 {/* Outer animated glow */}
-                <div className="absolute -inset-1 bg-gradient-to-r from-primary via-secondary to-tertiary rounded-full opacity-0 group-hover:opacity-30 group-focus-within:opacity-50 blur-lg transition-all duration-700"></div>
+                <div className="absolute -inset-1 bg-linear-to-r from-primary via-secondary to-tertiary rounded-full opacity-0 group-hover:opacity-30 group-focus-within:opacity-50 blur-lg transition-all duration-700"></div>
                 {/* Inner border glow */}
-                <div className="absolute -inset-[1px] bg-gradient-to-r from-primary/40 via-secondary/30 to-tertiary/40 rounded-full opacity-0 group-focus-within:opacity-100 transition-opacity duration-400"></div>
+                <div className="absolute -inset-px bg-linear-to-r from-primary/40 via-secondary/30 to-tertiary/40 rounded-full opacity-0 group-focus-within:opacity-100 transition-opacity duration-400"></div>
                 {/* Search pill */}
                 <div className="relative flex items-center bg-surface-container-high/80 backdrop-blur-xl border border-outline-variant/15 rounded-full overflow-hidden focus-within:border-transparent transition-all duration-300 shadow-xl shadow-black/20 hover:shadow-2xl hover:shadow-primary/10">
                   <div className="pl-5 pr-1 flex items-center">
@@ -137,7 +183,7 @@ export default function Home() {
                   />
                   <Button
                     type="submit"
-                    className="mr-1.5 px-5 py-2.5 h-auto bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-extrabold text-xs rounded-full hover:shadow-lg hover:shadow-primary/30 hover:scale-105 active:scale-95 transition-all duration-200"
+                    className="mr-1.5 px-5 py-2.5 h-auto bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-extrabold text-xs rounded-full hover:shadow-lg hover:shadow-primary/30 hover:scale-105 active:scale-95 transition-all duration-200"
                   >
                     <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                     Search
@@ -164,12 +210,12 @@ export default function Home() {
           {/* Stats Grid */}
           <div className="w-full max-w-5xl grid grid-cols-2 lg:grid-cols-4 gap-4 px-2 mt-16 reveal-on-scroll">
             {[
-              { value: "120K+", label: "Active Creators" },
-              { value: "2.4M", label: "Synthetic Posts" },
-              { value: "10M+", label: "Monthly Reads" },
-              { value: "850+", label: "Industry Mentors" },
+              { value: publicStats?.display.activeCreators || "0", label: "Active Creators" },
+              { value: publicStats?.display.syntheticPosts || "0", label: "Synthetic Posts" },
+              { value: publicStats?.display.monthlyReads || "0", label: "Monthly Reads" },
+              { value: publicStats?.display.industryMentors || "0", label: "Industry Mentors" },
             ].map((stat) => (
-              <Card key={stat.label} className="bg-surface-container-low border-outline-variant/10 text-center hover:border-primary/20 transition-all group">
+              <Card key={stat.label} className="bg-white/5 backdrop-blur-xl border-white/10 text-center hover:border-primary/30 hover:bg-white/10 transition-all duration-300 group shadow-lg shadow-black/20">
                 <CardContent className="p-6">
                   <span className="text-3xl sm:text-4xl font-extrabold font-headline block mb-2 group-hover:text-primary transition-colors">{stat.value}</span>
                   <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-primary">{stat.label}</span>
@@ -198,11 +244,11 @@ export default function Home() {
               {featuredPosts.length > 0 ? (
                 <>
                   {/* Card 1 - Large */}
-                  <Link href={`/blog/${featuredPosts[0].slug || featuredPosts[0].id}`} className="relative group overflow-hidden rounded-2xl bg-surface-container-low border border-outline-variant/10 h-[420px] hover:border-primary/20 transition-all block">
+                  <Link href={`/blog/${featuredPosts[0].slug || featuredPosts[0].id}`} className="relative group overflow-hidden rounded-2xl bg-surface-container-low border border-outline-variant/10 h-105 hover:border-primary/20 transition-all block">
                     {featuredPosts[0].cover_image_url && (
                       <img src={featuredPosts[0].cover_image_url} alt={featuredPosts[0].title} className="absolute inset-0 w-full h-full object-cover" />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent z-10"></div>
+                    <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/40 to-transparent z-10"></div>
                     <div className="absolute bottom-0 left-0 right-0 p-8 z-20">
                       {featuredPosts[0].topic && (
                         <Badge variant="outline" className="bg-primary/20 border-primary/30 text-primary text-[10px] font-bold uppercase tracking-wider mb-4">{featuredPosts[0].topic}</Badge>
@@ -229,11 +275,11 @@ export default function Home() {
                   {/* Right column - stacked cards */}
                   <div className="flex flex-col gap-6">
                     {featuredPosts.slice(1, 3).map((post) => (
-                      <Link key={post.id} href={`/blog/${post.slug || post.id}`} className="relative group overflow-hidden rounded-2xl bg-surface-container-low border border-outline-variant/10 h-[200px] hover:border-primary/20 transition-all block">
+                      <Link key={post.id} href={`/blog/${post.slug || post.id}`} className="relative group overflow-hidden rounded-2xl bg-surface-container-low border border-outline-variant/10 h-50 hover:border-primary/20 transition-all block">
                         {post.cover_image_url && (
                           <img src={post.cover_image_url} alt={post.title} className="absolute inset-0 w-full h-full object-cover" />
                         )}
-                        <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-transparent z-10"></div>
+                        <div className="absolute inset-0 bg-linear-to-r from-black/80 to-transparent z-10"></div>
                         <div className="absolute inset-0 p-6 z-20 flex flex-col justify-end">
                           {post.topic && (
                             <Badge variant="outline" className="bg-primary/20 border-primary/30 text-primary text-[10px] font-bold uppercase tracking-wider mb-3 w-fit">{post.topic}</Badge>
@@ -246,7 +292,7 @@ export default function Home() {
                       </Link>
                     ))}
                     {featuredPosts.length < 3 && (
-                      <div className="relative overflow-hidden rounded-2xl bg-surface-container-low border border-outline-variant/10 h-[200px] flex items-center justify-center">
+                      <div className="relative overflow-hidden rounded-2xl bg-surface-container-low border border-outline-variant/10 h-50 flex items-center justify-center">
                         <p className="text-on-surface-variant text-sm">More stories coming soon</p>
                       </div>
                     )}
@@ -298,7 +344,7 @@ export default function Home() {
                 </div>
 
                 <Button asChild variant="outline" className="mt-8 px-8 py-3.5 h-auto border-primary text-primary font-bold rounded-xl hover:bg-primary/10">
-                  <Link href="/inner-circle">Join the Inner Circle</Link>
+                  <Link href="/community">Join the Community</Link>
                 </Button>
               </div>
 
@@ -307,16 +353,16 @@ export default function Home() {
                 <CardContent className="p-8">
                   <div className="flex items-center gap-4 mb-6">
                     <Avatar className="h-16 w-16 rounded-lg">
-                      <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah" />
-                      <AvatarFallback className="rounded-lg">SC</AvatarFallback>
+                      <AvatarImage src={featuredReview?.author?.avatar_url || "https://api.dicebear.com/7.x/avataaars/svg?seed=Community"} />
+                      <AvatarFallback className="rounded-lg">CM</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h4 className="font-bold text-white">Sarah Chen</h4>
-                      <p className="text-[10px] uppercase tracking-widest text-primary">Lead Strategist, OpenAI</p>
+                      <h4 className="font-bold text-white">{featuredReview?.author?.name || "Community Member"}</h4>
+                      <p className="text-[10px] uppercase tracking-widest text-primary">Verified Community Review</p>
                     </div>
                   </div>
                   <blockquote className="text-on-surface-variant italic leading-relaxed mb-6">
-                    &ldquo;AiBlog isn&apos;t just another writing tool. It&apos;s the first ecosystem that actually understands the future of editorial value. My career path shifted the moment I joined.&rdquo;
+                    &ldquo;{featuredReview?.comment || "Community feedback will appear here as members post reviews."}&rdquo;
                   </blockquote>
                   <Separator className="mb-4" />
                   <div className="flex justify-between items-center text-[10px] uppercase tracking-wider text-on-surface-variant">
@@ -355,7 +401,7 @@ export default function Home() {
               <Button
                 type="submit"
                 disabled={newsletterStatus === "loading"}
-                className="px-8 py-3.5 h-auto bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20"
+                className="px-8 py-3.5 h-auto bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20"
               >
                 {newsletterStatus === "loading" ? "Subscribing..." : "Subscribe"}
               </Button>

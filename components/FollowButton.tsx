@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 
@@ -12,6 +13,7 @@ interface FollowButtonProps {
   className?: string;
   variant?: "default" | "outline" | "ghost";
   size?: "default" | "sm" | "lg";
+  showStatusBadge?: boolean;
 }
 
 export default function FollowButton({
@@ -21,11 +23,14 @@ export default function FollowButton({
   className = "",
   variant = "outline",
   size = "default",
+  showStatusBadge = true,
 }: FollowButtonProps) {
   const { isAuthenticated, user } = useAuth();
   const router = useRouter();
   const [isFollowing, setIsFollowing] = useState(initialFollowing);
+  const [isPending, setIsPending] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [actionError, setActionError] = useState("");
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   // Check if current user is following this user
@@ -36,9 +41,7 @@ export default function FollowButton({
       try {
         const response = await fetch(`/api/follows?user_id=${userId}&type=followers`);
         if (response.ok) {
-          const data = await response.json();
-          // Check if current user is in the followers list
-          // This would need adjustment based on actual API response structure
+          // Follow state sync can be expanded with explicit current-user checks if needed.
         }
       } catch (error) {
         console.error("Error checking follow status:", error);
@@ -59,36 +62,52 @@ export default function FollowButton({
     }
 
     setLoading(true);
+    setActionError("");
     try {
       if (isFollowing) {
         // Unfollow
-        const response = await fetch(`/api/follows?following_id=${userId}`, {
+        let response = await fetch(`/api/follows?following_id=${userId}`, {
           method: "DELETE",
         });
 
+        if (!response.ok) {
+          response = await fetch(`/api/follows/${userId}`, { method: "DELETE" });
+        }
+
         if (response.ok) {
           setIsFollowing(false);
+          setIsPending(false);
           onFollowChange?.(false);
         } else {
-          throw new Error("Failed to unfollow");
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to unfollow");
         }
       } else {
-        // Follow
-        const response = await fetch("/api/follows", {
+        // Follow request
+        let response = await fetch("/api/follows", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ followingUserId: userId }),
         });
 
+        if (!response.ok) {
+          response = await fetch(`/api/follows/${userId}`, { method: "POST" });
+        }
+
         if (response.ok) {
+          const data = await response.json();
+          const pending = data?.status === "pending";
           setIsFollowing(true);
+          setIsPending(pending);
           onFollowChange?.(true);
         } else {
-          throw new Error("Failed to follow");
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to follow");
         }
       }
     } catch (error) {
       console.error("Error toggling follow:", error);
+      setActionError(error instanceof Error ? error.message : "Failed to update follow");
     } finally {
       setLoading(false);
     }
@@ -159,21 +178,35 @@ export default function FollowButton({
   }
 
   return (
-    <Button
-      onClick={handleFollowClick}
-      disabled={loading || user?.id === userId}
-      variant={isFollowing ? "default" : variant}
-      size={size}
-      className={`${className} ${
-        isFollowing
-          ? "bg-primary/10 text-primary hover:bg-primary/20 border-primary/30"
-          : ""
-      }`}
-    >
-      <span className="material-symbols-outlined mr-1">
-        {isFollowing ? "person_check" : "person_add"}
-      </span>
-      {loading ? "..." : isFollowing ? "Following" : "Follow"}
-    </Button>
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={handleFollowClick}
+          disabled={loading || user?.id === userId}
+          variant={isFollowing ? "default" : variant}
+          size={size}
+          className={`${className} ${
+            isFollowing
+              ? "bg-primary/10 text-primary hover:bg-primary/20 border-primary/30"
+              : ""
+          }`}
+        >
+          <span className="material-symbols-outlined mr-1">
+            {isFollowing ? (isPending ? "schedule" : "person_check") : "person_add"}
+          </span>
+          {loading ? "..." : isFollowing ? (isPending ? "Requested" : "Following") : "Follow"}
+        </Button>
+
+        {showStatusBadge && isFollowing && !loading && (
+          <Badge variant="outline" className="text-[10px] h-6 border-primary/30 text-primary bg-primary/5">
+            {isPending ? "Requested" : "Joined"}
+          </Badge>
+        )}
+      </div>
+
+      {actionError && (
+        <span className="text-[11px] text-red-400">{actionError}</span>
+      )}
+    </div>
   );
 }

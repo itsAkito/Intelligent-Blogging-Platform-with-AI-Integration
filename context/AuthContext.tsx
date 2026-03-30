@@ -153,6 +153,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isLoaded, isSignedIn, clerkUser, syncUserToSupabase, loadOtpUser]);
 
+  const isAuthenticated = !!isSignedIn || !!profile;
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (pathname?.startsWith("/auth") && role === "admin" && isAuthenticated) {
+      router.replace("/admin");
+    }
+  }, [loading, pathname, role, isAuthenticated, router]);
+
   const handleConsentAccept = async () => {
     setShowConsent(false);
     setLoading(false);
@@ -187,8 +197,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setRole("user");
     router.push("/");
   };
-
-  const isAuthenticated = !!isSignedIn || !!profile;
 
   return (
     <AuthContext.Provider

@@ -1,85 +1,139 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
-// POST to follow a user
+function isFollowRequestSchemaError(error: unknown): boolean {
+  const message = String((error as any)?.message || '').toLowerCase();
+  return (
+    message.includes('follow_requests') ||
+    message.includes('responded_at') ||
+    message.includes('does not exist') ||
+    message.includes('relation')
+  );
+}
+
 export async function POST(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const { userId: currentUserId } = await auth();
+    const currentUserId = await getAuthUserId(request);
 
     if (!currentUserId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { userId: targetUserId } = params;
+    const { userId: targetUserId } = await params;
 
     if (currentUserId === targetUserId) {
-      return NextResponse.json(
-        { error: 'Cannot follow yourself' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Cannot follow yourself' }, { status: 400 });
     }
 
-    // Insert follow record
-    const { data, error } = await supabase
+    const { data: alreadyFollowing } = await supabase
       .from('user_follows')
-      .insert({
-        follower_id: currentUserId,
-        following_id: targetUserId,
-      })
-      .select()
+      .select('id')
+      .eq('follower_id', currentUserId)
+      .eq('following_id', targetUserId)
       .single();
 
-    if (error && error.code === '23505') {
-      // Already following
-      return NextResponse.json({ success: true, message: 'Already following' });
+    if (alreadyFollowing) {
+      return NextResponse.json({ success: true, status: 'accepted', message: 'Already following' });
     }
 
-    if (error) throw error;
+    let requestId: string | undefined;
+    let status: 'pending' | 'accepted' = 'pending';
 
-    // Create notification
     try {
-      await supabase.from('notifications').insert({
-        user_id: targetUserId,
-        triggered_by_user_id: currentUserId,
-        type: 'follow',
-        title: 'New Follower',
-        message: 'Someone started following you',
-      });
-    } catch (notifError) {
-      console.warn('Failed to create follow notification:', notifError);
+      const { data: existingRequest, error: existingRequestError } = await supabase
+        .from('follow_requests')
+        .select('id,status')
+        .eq('from_user_id', currentUserId)
+        .eq('to_user_id', targetUserId)
+        .single();
+
+      if (existingRequestError && existingRequestError.code !== 'PGRST116') {
+        throw existingRequestError;
+      }
+
+      requestId = existingRequest?.id;
+
+      if (existingRequest?.status === 'pending') {
+        return NextResponse.json({ success: true, status: 'pending', requestId, message: 'Request already pending' });
+      }
+
+      if (existingRequest) {
+        const { data: updatedRequest, error: updateError } = await supabase
+          .from('follow_requests')
+          .update({ status: 'pending', responded_at: null })
+          .eq('id', existingRequest.id)
+          .select('id')
+          .single();
+
+        if (updateError) throw updateError;
+        requestId = updatedRequest.id;
+      } else {
+        const { data: newRequest, error: requestError } = await supabase
+          .from('follow_requests')
+          .insert({
+            from_user_id: currentUserId,
+            to_user_id: targetUserId,
+            status: 'pending',
+          })
+          .select('id')
+          .single();
+
+        if (requestError) throw requestError;
+        requestId = newRequest.id;
+      }
+    } catch (followRequestError) {
+      if (!isFollowRequestSchemaError(followRequestError)) {
+        throw followRequestError;
+      }
+
+      const { error: directFollowError } = await supabase
+        .from('user_follows')
+        .upsert(
+          { follower_id: currentUserId, following_id: targetUserId },
+          { onConflict: 'follower_id,following_id', ignoreDuplicates: true }
+        );
+
+      if (directFollowError) throw directFollowError;
+      status = 'accepted';
     }
 
-    return NextResponse.json({ success: true, follow: data });
+    await supabase.from('notifications').insert({
+      user_id: targetUserId,
+      related_user_id: currentUserId,
+      type: status === 'pending' ? 'follow_request' : 'follow',
+      title: status === 'pending' ? 'Follow Request' : 'New Follower',
+      message: status === 'pending' ? 'Someone wants to follow you' : 'Someone started following you',
+      action_url: status === 'pending' && requestId ? `follow_request:${requestId}` : null,
+      icon: 'person_add',
+      is_read: false,
+    });
+
+    return NextResponse.json({ success: true, status, requestId });
   } catch (error) {
     console.error('Error following user:', error);
-    return NextResponse.json(
-      { error: 'Failed to follow user' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to follow user' }, { status: 500 });
   }
 }
 
-// DELETE to unfollow a user
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { userId: string } }
+  { params }: { params: Promise<{ userId: string }> }
 ) {
   try {
     const supabase = await createClient();
-    const { userId: currentUserId } = await auth();
+    const currentUserId = await getAuthUserId(request);
 
     if (!currentUserId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { userId: targetUserId } = params;
+    const { userId: targetUserId } = await params;
 
-    // Delete follow record
     const { error } = await supabase
       .from('user_follows')
       .delete()
@@ -91,9 +145,6 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error unfollowing user:', error);
-    return NextResponse.json(
-      { error: 'Failed to unfollow user' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to unfollow user' }, { status: 500 });
   }
 }
