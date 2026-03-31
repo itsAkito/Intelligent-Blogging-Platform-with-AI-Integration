@@ -59,6 +59,19 @@ export default function BlogPostPage() {
   const [likers, setLikers] = useState<LikerProfile[]>([]);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
 
+  // Reviews state
+  const [reviews, setReviews] = useState<Array<{
+    id: string;
+    rating: number;
+    comment: string;
+    created_at: string;
+    author: { id: string; name: string; avatar_url?: string };
+  }>>([]);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewSuccess, setReviewSuccess] = useState("");
+
   const fetchPost = useCallback(async () => {
     try {
       const res = await fetch(`/api/posts/${slug}`);
@@ -269,6 +282,59 @@ export default function BlogPostPage() {
       alert(err instanceof Error ? err.message : "Failed to delete comment");
     } finally {
       setDeletingCommentId(null);
+    }
+  };
+
+  const fetchReviews = useCallback(async () => {
+    if (!slug) return;
+    try {
+      const res = await fetch(`/api/community/reviews?limit=20`);
+      if (res.ok) {
+        const data = await res.json();
+        if (!data.unavailable) {
+          const postReviews = (data.reviews || []).filter(
+            (r: { postSlug?: string }) => r.postSlug === slug
+          );
+          setReviews(postReviews);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load reviews:", err);
+    }
+  }, [slug]);
+
+  useEffect(() => {
+    fetchReviews();
+  }, [fetchReviews]);
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewComment.trim() || !user) return;
+    setSubmittingReview(true);
+    try {
+      const res = await fetch("/api/community/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          postSlug: slug,
+          rating: reviewRating,
+          comment: reviewComment,
+        }),
+      });
+      if (res.ok) {
+        setReviewComment("");
+        setReviewRating(5);
+        setReviewSuccess("Review submitted!");
+        setTimeout(() => setReviewSuccess(""), 3000);
+        fetchReviews();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Failed to submit review");
+      }
+    } catch {
+      alert("Failed to submit review. Please try again.");
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -501,6 +567,104 @@ export default function BlogPostPage() {
                             </button>
                           </div>
                         )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+
+          {/* Reviews Section */}
+          <section className="mt-12 pt-10 border-t border-outline-variant/10">
+            <h2 className="text-2xl font-bold font-headline mb-8 flex items-center gap-2">
+              <span className="material-symbols-outlined text-secondary">rate_review</span>
+              Reviews ({reviews.length})
+            </h2>
+
+            {/* Review Form */}
+            {user ? (
+              <div className="glass-panel rounded-2xl p-6 mb-8">
+                <h3 className="font-bold text-sm mb-4">Leave a Review</h3>
+                <form onSubmit={handleSubmitReview} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">Rating</label>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewRating(star)}
+                          className={`text-2xl transition-colors ${star <= reviewRating ? "text-amber-400" : "text-zinc-600"}`}
+                        >
+                          ★
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <textarea
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    placeholder="Share your thoughts about this post..."
+                    rows={3}
+                    required
+                    className="w-full px-4 py-3 rounded-xl bg-surface-container border border-outline-variant/20 text-sm text-on-surface placeholder:text-on-surface-variant/50 outline-none focus:border-secondary/50 resize-none"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-on-surface-variant">Reviewing as {user.email}</span>
+                    <button
+                      type="submit"
+                      disabled={submittingReview}
+                      className="px-6 py-2.5 bg-linear-to-r from-secondary to-tertiary text-white font-bold rounded-lg text-sm hover:scale-[1.02] transition-all shadow-lg shadow-secondary/20 disabled:opacity-50"
+                    >
+                      {submittingReview ? "Submitting..." : "Submit Review"}
+                    </button>
+                  </div>
+                  {reviewSuccess && (
+                    <p className="text-green-400 text-sm flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">check_circle</span>
+                      {reviewSuccess}
+                    </p>
+                  )}
+                </form>
+              </div>
+            ) : (
+              <div className="glass-panel rounded-2xl p-6 mb-8 text-center">
+                <p className="text-sm text-on-surface-variant">
+                  <Link href="/auth" className="text-primary font-semibold hover:underline">Sign in</Link> to leave a review
+                </p>
+              </div>
+            )}
+
+            {/* Reviews List */}
+            <div className="space-y-4">
+              {reviews.length === 0 ? (
+                <div className="text-center py-8 text-on-surface-variant">
+                  <span className="material-symbols-outlined text-3xl mb-2 block opacity-30">reviews</span>
+                  <p className="text-sm">No reviews yet. Be the first to review this post!</p>
+                </div>
+              ) : (
+                reviews.map((review) => (
+                  <div key={review.id} className="glass-panel rounded-xl p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-full bg-surface-container-high overflow-hidden shrink-0 flex items-center justify-center text-on-surface-variant text-sm">
+                        {review.author?.avatar_url ? (
+                          <Image src={review.author.avatar_url} alt="" width={36} height={36} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="material-symbols-outlined text-sm">person</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-semibold text-sm text-on-surface">{review.author?.name || "User"}</span>
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <span key={star} className={`text-xs ${star <= review.rating ? "text-amber-400" : "text-zinc-700"}`}>★</span>
+                            ))}
+                          </div>
+                          <span className="text-xs text-on-surface-variant">{formatDate(review.created_at)}</span>
+                        </div>
+                        <p className="text-sm text-on-surface-variant leading-relaxed">{review.comment}</p>
                       </div>
                     </div>
                   </div>

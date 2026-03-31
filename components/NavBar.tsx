@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { UserButton } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -38,6 +38,7 @@ const AUTH_LINKS = [
 export default function Navbar() {
   const router = useRouter();
   const { isAdmin, isAuthenticated, profile, user, signOut } = useAuth();
+  const { user: clerkUser } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   // Prevent hydration mismatch: don't render auth-dependent content until after mount
@@ -53,8 +54,10 @@ export default function Navbar() {
     router.prefetch("/careers");
   }, [router]);
 
-  // Determine if user is OTP-based (authenticated but not a Clerk user)
+  // isOtpUser = authenticated via OTP or admin cookie (not a Clerk user)
   const isOtpUser = isAuthenticated && !user?.id?.startsWith("user_");
+  // isClerkUser = authenticated via Clerk (Google / email sign-up)
+  const isClerkUser = isAuthenticated && !!user?.id?.startsWith("user_");
 
   // Before hydration, always use guest links to match server render
   const navLinks = mounted && isAuthenticated ? AUTH_LINKS : GUEST_LINKS;
@@ -149,15 +152,61 @@ export default function Navbar() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                ) : (
-                  <UserButton
-                    appearance={{
-                      elements: {
-                        avatarBox: "w-8 h-8",
-                      },
-                    }}
-                  />
-                )}
+                ) : isClerkUser && clerkUser ? (
+                  // Clerk user — custom dropdown so sign-out goes through /auth/signout
+                  // (avoids Clerk v7 stale Server Action hash error on UserButton)
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full overflow-hidden">
+                        {clerkUser.imageUrl ? (
+                          <Image
+                            src={clerkUser.imageUrl}
+                            alt={clerkUser.fullName || "User"}
+                            width={32}
+                            height={32}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-linear-to-br from-violet-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold">
+                            {(clerkUser.fullName || clerkUser.firstName || "U")?.[0]?.toUpperCase()}
+                          </div>
+                        )}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <div className="px-2 py-1.5">
+                        <p className="text-sm font-semibold text-white">
+                          {clerkUser.fullName || clerkUser.firstName || "User"}
+                        </p>
+                        <p className="text-xs text-zinc-400">
+                          {clerkUser.primaryEmailAddress?.emailAddress}
+                        </p>
+                      </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard" className="cursor-pointer">Dashboard</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link href="/dashboard/settings" className="cursor-pointer">Settings</Link>
+                      </DropdownMenuItem>
+                      {isAdmin && (
+                        <DropdownMenuItem asChild>
+                          <Link href="/admin" className="cursor-pointer">Admin Panel</Link>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onSelect={(e) => {
+                          e.preventDefault();
+                          void signOut();
+                        }}
+                        className="text-red-400 cursor-pointer"
+                      >
+                        Sign Out
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : null}
                 
                 <Button asChild className="px-5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
                   <Link href="/editor">Create Post</Link>
@@ -209,17 +258,13 @@ export default function Navbar() {
               <>
                 <Separator className="my-2" />
                 <div className="pt-2">
-                  {isOtpUser && profile ? (
-                    <Button 
-                      onClick={() => { void signOut(); }}
-                      variant="ghost"
-                      className="w-full justify-start text-red-400 hover:text-red-300"
-                    >
-                      Sign Out
-                    </Button>
-                  ) : (
-                    <UserButton appearance={{ elements: { avatarBox: "w-8 h-8" } }} />
-                  )}
+                  <Button 
+                    onClick={() => { void signOut(); }}
+                    variant="ghost"
+                    className="w-full justify-start text-red-400 hover:text-red-300"
+                  >
+                    Sign Out
+                  </Button>
                 </div>
               </>
             )}

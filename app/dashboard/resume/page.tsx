@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toJpeg } from "html-to-image";
@@ -84,23 +84,23 @@ const COLOR_THEMES = [
 ];
 
 const P = {
-  primary: "#003466",
-  primaryContainer: "#1a4b84",
-  primaryFixed: "#d5e3ff",
-  tertiary: "#3a009e",
-  tertiaryFixed: "#e8deff",
-  onTertiaryFixed: "#20005f",
-  surface: "#f7f9fb",
-  surfaceLow: "#f2f4f6",
-  surfaceHigh: "#eceef0",
-  surfaceLowest: "#ffffff",
-  outline: "#737781",
-  outlineVariant: "#c3c6d1",
-  onSurface: "#191c1e",
-  onSurfaceVariant: "#424750",
-  error: "#ba1a1a",
-  errorContainer: "#ffdad6",
-  onErrorContainer: "#410002",
+  primary: "#8b5cf6",
+  primaryContainer: "#6d28d9",
+  primaryFixed: "#2e1065",
+  tertiary: "#a78bfa",
+  tertiaryFixed: "#1e1b4b",
+  onTertiaryFixed: "#c4b5fd",
+  surface: "#0f0a1e",
+  surfaceLow: "#1a1433",
+  surfaceHigh: "#241e3a",
+  surfaceLowest: "#0a0618",
+  outline: "#9ca3af",
+  outlineVariant: "#4b5563",
+  onSurface: "#f3f4f6",
+  onSurfaceVariant: "#d1d5db",
+  error: "#f87171",
+  errorContainer: "#7f1d1d",
+  onErrorContainer: "#fca5a5",
 };
 
 const emptyExperience = (): ExperienceItem => ({
@@ -465,7 +465,7 @@ export default function ResumeBuilderPage() {
     }
   };
 
-  const inputClass = "w-full rounded-lg border px-3 py-2 text-sm outline-none";
+  const inputClass = "w-full rounded-lg border px-3 py-2 text-sm outline-none bg-[#241e3a] text-white placeholder-zinc-500 focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30";
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -520,7 +520,7 @@ export default function ResumeBuilderPage() {
                   </p>
                 </div>
 
-                <div className="flex min-w-55 items-center gap-4 rounded-2xl border bg-white/90 p-4 shadow-lg" style={{ borderColor: `${P.outlineVariant}66` }}>
+                <div className="flex min-w-55 items-center gap-4 rounded-2xl border bg-[#1a1433]/90 p-4 shadow-lg" style={{ borderColor: `${P.outlineVariant}66` }}>
                   <div className="relative h-20 w-20">
                     <svg className="h-full w-full -rotate-90" viewBox="0 0 96 96">
                       <circle cx="48" cy="48" r="38" fill="transparent" stroke={P.surfaceHigh} strokeWidth="8" />
@@ -582,13 +582,13 @@ export default function ResumeBuilderPage() {
                   style={{
                     background:
                       message.type === "success"
-                        ? "#dcfce7"
+                        ? "#14532d"
                         : message.type === "error"
                           ? P.errorContainer
                           : P.tertiaryFixed,
                     color:
                       message.type === "success"
-                        ? "#166534"
+                        ? "#86efac"
                         : message.type === "error"
                           ? P.onErrorContainer
                           : P.onTertiaryFixed,
@@ -602,7 +602,7 @@ export default function ResumeBuilderPage() {
               <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
                 <div className="space-y-6 lg:col-span-3">
                   {step === 0 && (
-                    <section className="rounded-2xl border bg-white p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
+                    <section className="rounded-2xl border bg-[#1a1433] p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
                       <h2 className="mb-4 text-lg font-bold" style={{ color: P.primary }}>Personal Information</h2>
                       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         {[
@@ -651,7 +651,7 @@ export default function ResumeBuilderPage() {
                   {step === 1 && (
                     <section className="space-y-4">
                       {resumeData.experience.map((exp, index) => (
-                        <div key={`exp-${index}`} className="rounded-2xl border bg-white" style={{ borderColor: `${P.outlineVariant}66` }}>
+                        <div key={`exp-${index}`} className="rounded-2xl border bg-[#1a1433]" style={{ borderColor: `${P.outlineVariant}66` }}>
                           <div className="flex items-center justify-between border-b px-5 py-4" style={{ borderColor: `${P.outlineVariant}66` }}>
                             <p className="font-bold" style={{ color: P.primary }}>{exp.position || "New Experience"}</p>
                             <div className="flex items-center gap-2">
@@ -711,7 +711,7 @@ export default function ResumeBuilderPage() {
                   {step === 2 && (
                     <section className="space-y-4">
                       {resumeData.education.map((edu, index) => (
-                        <div key={`edu-${index}`} className="rounded-2xl border bg-white p-5" style={{ borderColor: `${P.outlineVariant}66` }}>
+                        <div key={`edu-${index}`} className="rounded-2xl border bg-[#1a1433] p-5" style={{ borderColor: `${P.outlineVariant}66` }}>
                           <div className="mb-4 flex items-center justify-between">
                             <h3 className="font-bold" style={{ color: P.primary }}>{edu.degree || `Education ${index + 1}`}</h3>
                             {index > 0 && (
@@ -736,7 +736,7 @@ export default function ResumeBuilderPage() {
                         <span className="inline-flex items-center gap-2"><Plus className="h-4 w-4" /> Add Education</span>
                       </button>
 
-                      <div className="rounded-2xl border bg-white p-5" style={{ borderColor: `${P.outlineVariant}66` }}>
+                      <div className="rounded-2xl border bg-[#1a1433] p-5" style={{ borderColor: `${P.outlineVariant}66` }}>
                         <h3 className="mb-3 font-bold" style={{ color: P.primary }}>Certifications</h3>
                         <div className="mb-3 flex gap-2">
                           <input value={newCert} onChange={(e) => setNewCert(e.target.value)} className={inputClass} placeholder="AWS, PMP, CFA..." style={{ borderColor: P.outlineVariant }} />
@@ -755,7 +755,7 @@ export default function ResumeBuilderPage() {
                   )}
 
                   {step === 3 && (
-                    <section className="rounded-2xl border bg-white p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
+                    <section className="rounded-2xl border bg-[#1a1433] p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
                       <h2 className="mb-4 text-lg font-bold" style={{ color: P.primary }}>Skills</h2>
                       <div className="mb-4 flex gap-2">
                         <input value={newSkill} onChange={(e) => setNewSkill(e.target.value)} className={inputClass} placeholder="React, TypeScript, Leadership..." style={{ borderColor: P.outlineVariant }} />
@@ -774,7 +774,7 @@ export default function ResumeBuilderPage() {
 
                   {step === 4 && (
                     <section className="space-y-4">
-                      <div className="rounded-2xl border bg-white p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
+                      <div className="rounded-2xl border bg-[#1a1433] p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
                         <h2 className="mb-3 text-lg font-bold" style={{ color: P.primary }}>AI Narrative</h2>
                         <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-3">
                           {(["executive", "specialist", "visionary"] as const).map((tone) => (
@@ -804,7 +804,7 @@ export default function ResumeBuilderPage() {
                         </button>
                       </div>
 
-                      <div className="rounded-2xl border bg-white p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
+                      <div className="rounded-2xl border bg-[#1a1433] p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
                         <label className="mb-1 block text-xs font-bold uppercase tracking-wider" style={{ color: P.outline }}>Professional Summary</label>
                         <textarea value={resumeData.summary} onChange={(e) => setField("summary", e.target.value)} rows={6} className="w-full rounded-lg border p-3 text-sm outline-none" style={{ borderColor: P.outlineVariant }} />
                       </div>
@@ -813,7 +813,7 @@ export default function ResumeBuilderPage() {
 
                   {step === 5 && (
                     <section className="space-y-4">
-                      <div className="rounded-2xl border bg-white p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
+                      <div className="rounded-2xl border bg-[#1a1433] p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
                         <h2 className="mb-3 text-lg font-bold" style={{ color: P.primary }}>ATS Intelligence</h2>
                         <div className="space-y-2">
                           {[
@@ -831,7 +831,7 @@ export default function ResumeBuilderPage() {
                         </div>
                       </div>
 
-                      <div className="rounded-2xl border bg-white p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
+                      <div className="rounded-2xl border bg-[#1a1433] p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
                         <h2 className="mb-3 text-lg font-bold" style={{ color: P.primary }}>Template</h2>
                         <div className="grid grid-cols-3 gap-3">
                           {TEMPLATES.map((tpl, idx) => (
@@ -842,7 +842,7 @@ export default function ResumeBuilderPage() {
                         </div>
                       </div>
 
-                      <div className="rounded-2xl border bg-white p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
+                      <div className="rounded-2xl border bg-[#1a1433] p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
                         <h2 className="mb-3 text-lg font-bold" style={{ color: P.primary }}>Color Theme</h2>
                         <div className="flex flex-wrap gap-3">
                           {COLOR_THEMES.map((ct, idx) => (
@@ -858,7 +858,7 @@ export default function ResumeBuilderPage() {
                         <p className="mt-2 text-xs font-medium" style={{ color: P.outline }}>{COLOR_THEMES[activeColorTheme]?.name}</p>
                       </div>
 
-                      <div className="rounded-2xl border bg-white p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
+                      <div className="rounded-2xl border bg-[#1a1433] p-6" style={{ borderColor: `${P.outlineVariant}66` }}>
                         <h2 className="mb-3 text-lg font-bold" style={{ color: P.primary }}>Export</h2>
                         <div className="grid grid-cols-3 gap-2">
                           {(["pdf", "doc", "txt", "json", "html", "jpg"] as const).map((fmt) => (
@@ -994,8 +994,8 @@ export default function ResumeBuilderPage() {
                                     <ul className="mt-1 space-y-0.5 pl-2">
                                       {exp.description.split("\n").filter(Boolean).slice(0, 4).map((line, li) => (
                                         <li key={li} className="flex items-start gap-1.5 leading-snug" style={{ color: previewTheme.text }}>
-                                          <span className="mt-0.75 shrink-0 text-[8px]" style={{ color: previewTheme.heading }}>▸</span>
-                                          <span>{line.replace(/^[-•*]\s*/, "")}</span>
+                                          <span className="mt-0.75 shrink-0 text-[8px]" style={{ color: previewTheme.heading }}>â–¸</span>
+                                          <span>{line.replace(/^[-â€¢*]\s*/, "")}</span>
                                         </li>
                                       ))}
                                     </ul>
@@ -1035,7 +1035,7 @@ export default function ResumeBuilderPage() {
                             <ul className="space-y-0.5">
                               {resumeData.certifications.filter(Boolean).map((cert, i) => (
                                 <li key={i} className="flex items-center gap-1.5" style={{ color: previewTheme.text }}>
-                                  <span style={{ color: previewTheme.heading }}>✓</span> {cert}
+                                  <span style={{ color: previewTheme.heading }}>âœ“</span> {cert}
                                 </li>
                               ))}
                             </ul>
@@ -1049,7 +1049,7 @@ export default function ResumeBuilderPage() {
             </div>
           </main>
 
-          <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-white/90 backdrop-blur" style={{ borderColor: `${P.outlineVariant}66` }}>
+          <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-[#0f0a1e]/95 backdrop-blur" style={{ borderColor: `${P.outlineVariant}66` }}>
             <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-3">
               <div className="flex items-center gap-2">
                 <div className="rounded-lg p-2" style={{ background: P.primaryFixed }}>
@@ -1057,7 +1057,7 @@ export default function ResumeBuilderPage() {
                 </div>
                 <div>
                   <p className="text-xs font-bold" style={{ color: P.primary }}>{resumeData.fullName || "Untitled Resume"}</p>
-                  <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: P.outline }}>{TEMPLATES[activeTemplate]} • ATS {atsScore}%</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: P.outline }}>{TEMPLATES[activeTemplate]} â€¢ ATS {atsScore}%</p>
                 </div>
               </div>
 

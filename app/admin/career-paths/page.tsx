@@ -11,7 +11,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 
 export default function CareerPathsPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading } = useAuth();
   const router = useRouter();
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [tracks, setTracks] = useState<any[]>([]);

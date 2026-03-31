@@ -22,7 +22,7 @@ interface User {
 }
 
 export default function UsersManagementPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading } = useAuth();
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);

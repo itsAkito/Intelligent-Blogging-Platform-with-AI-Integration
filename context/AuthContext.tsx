@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, createContext, useContext, useCallback } from "react";
-import { useUser, useClerk } from "@clerk/nextjs";
-import { useRouter, usePathname } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
+import { usePathname } from "next/navigation";
 
 interface Profile {
   id: string;
@@ -30,14 +30,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { user: clerkUser, isLoaded, isSignedIn } = useUser();
-  const { signOut: clerkSignOut } = useClerk();
   const pathname = usePathname();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string>("user");
-  const router = useRouter();
-
-  // Don't trigger session probes on admin/auth routes
   const isAdminRoute = pathname?.includes("/admin");
   const isAuthRoute = pathname?.startsWith("/auth");
 
@@ -177,33 +173,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAuthenticated = !!isSignedIn || !!profile;
 
   const signOut = async () => {
-    // Clear local state immediately so UI updates at once
+    // Clear local state immediately so UI responds at once
     setProfile(null);
     setRole("user");
+
+    // Call the unified sign-out API route.
+    // This route handles ALL auth types (Clerk, OTP, admin) via plain HTTP —
+    // NO Clerk Server Actions are involved, so there are no stale-hash errors.
+    try {
+      await fetch("/api/auth/signout", { method: "POST", credentials: "include" });
+    } catch {
+      // Non-fatal — proceed to redirect regardless
+    }
 
     if (typeof window !== "undefined") {
       localStorage.removeItem("admin_session_start");
     }
 
-    // Fire server-side cleanup in background — don't block the redirect
-    Promise.allSettled([
-      fetch("/api/auth/otp/session", { method: "DELETE", credentials: "include" }),
-      fetch("/api/auth/logout", { method: "POST", credentials: "include" }),
-      fetch("/api/admin/logout", { method: "POST", credentials: "include" }),
-    ]).catch(() => {});
-
-    // Sign out of Clerk (or redirect immediately if not a Clerk session)
-    if (isSignedIn) {
-      try {
-        await clerkSignOut({ redirectUrl: "/" });
-        return; // Clerk navigates to /
-      } catch {
-        // fall through to manual redirect
-      }
-    }
-
-    router.push("/");
-    router.refresh();
+    // Hard navigate to homepage so Clerk middleware re-evaluates fresh cookies
+    window.location.href = "/";
   };
 
   return (

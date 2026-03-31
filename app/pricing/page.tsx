@@ -6,6 +6,8 @@ import { Check } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Navbar from "@/components/NavBar";
+import Footer from "@/components/Footer";
 
 interface SubscriptionPlan {
   id: string;
@@ -218,13 +220,14 @@ function PricingPageContent() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Navbar />
       {/* Header */}
       <div className="pt-32 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
           <p className="text-xs uppercase tracking-widest text-blue-400 mb-4">
             THE FUTURE OF CONTENT
           </p>
-          <h1 className="text-6xl sm:text-7xl font-bold font-headline tracking-tighter mb-6">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold font-headline tracking-tighter mb-6">
             <span className="text-white">Elevate Your </span>
             <span className="bg-linear-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
               Narrative Authority
@@ -273,7 +276,7 @@ function PricingPageContent() {
 
       {/* Pricing Cards */}
       <div className="px-4 sm:px-6 lg:px-8 pb-20">
-        <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-8">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
           {tiersWithPlanIds.map((tier) => {
             const isCurrentPlan = currentSubscription?.plan_id === tier.planId;
             const displayPrice = isAnnual ? tier.annualPrice : tier.price;
@@ -520,6 +523,7 @@ function PricingPageContent() {
           </p>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

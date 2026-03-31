@@ -34,8 +34,11 @@ export default function LikeButton({
       try {
         const response = await fetch(`/api/likes?post_id=${postId}`);
         if (response.ok) {
-          // You might want to track user's like in localStorage or through user context
-          // For now, we'll assume it's not liked on initial load
+          const data = await response.json();
+          setIsLiked(!!data.likedByCurrentUser);
+          if (typeof data.count === "number") {
+            setLikeCount(data.count);
+          }
         }
       } catch (error) {
         console.error("Error checking like status:", error);

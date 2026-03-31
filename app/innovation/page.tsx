@@ -21,6 +21,8 @@ import {
   ExternalLink,
   ChevronRight,
   Landmark,
+  Brain,
+  Loader2,
 } from "lucide-react";
 
 type InnovationItem = {
@@ -117,6 +119,19 @@ const toReadableItem = (item: InnovationItem | NewsItem): ReadableItem => ({
   imageUrl: "imageUrl" in item ? item.imageUrl : undefined,
 });
 
+const formatItemDate = (dateStr: string): string => {
+  try {
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return "Recently Published";
+    const now = new Date();
+    const year = date.getFullYear();
+    if (year < 2020 || date > now) return "Recently Published";
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch {
+    return "Recently Published";
+  }
+};
+
 export default function InnovationPage() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
@@ -130,6 +145,8 @@ export default function InnovationPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [activeTab, setActiveTab] = useState<"news" | "research" | "community">("research");
   const [selectedStory, setSelectedStory] = useState<ReadableItem | null>(null);
+  const [aiSummary, setAiSummary] = useState<string>("");
+  const [aiSummaryLoading, setAiSummaryLoading] = useState(false);
 
   useEffect(() => {
     const loadFeed = async () => {
@@ -231,6 +248,32 @@ export default function InnovationPage() {
       .map((entry) => entry.item);
   }, [geopolitics, researchItems, selectedStory, worldNews]);
 
+  const handleAISummarize = async () => {
+    if (!selectedStory || aiSummaryLoading) return;
+    setAiSummaryLoading(true);
+    setAiSummary("");
+    try {
+      const res = await fetch("/api/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: `Summarize this research paper or article in clear, accessible language. Provide key findings, methodology, and significance.\n\nTitle: ${selectedStory.title}\nSource: ${selectedStory.sourceName}\nCategory: ${selectedStory.category}\nAbstract/Summary: ${selectedStory.summary}\n${selectedStory.content ? `\nContent: ${selectedStory.content}` : ""}`,
+          tone: "professional",
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAiSummary(data?.content || data?.text || "Unable to generate summary.");
+      } else {
+        setAiSummary("AI summarization is temporarily unavailable.");
+      }
+    } catch {
+      setAiSummary("Failed to generate AI summary. Please try again.");
+    } finally {
+      setAiSummaryLoading(false);
+    }
+  };
+
   useEffect(() => {
     const tabParam = searchParams.get("tab");
     if (tabParam === "news" || tabParam === "research" || tabParam === "community") {
@@ -317,20 +360,20 @@ export default function InnovationPage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 min-w-65">
-                <div className="rounded-xl bg-violet-500/10 border border-violet-500/15 p-4">
+              <div className="grid grid-cols-2 gap-3 min-w-65 relative z-10">
+                <div className="rounded-xl bg-violet-500/10 border border-violet-500/15 p-4 backdrop-blur-sm">
                   <p className="text-[10px] uppercase tracking-[0.2em] text-violet-300">News Sources</p>
                   <p className="mt-1.5 text-2xl font-bold text-violet-400">{worldNews.length + researchNews.length}</p>
                 </div>
-                <div className="rounded-xl bg-blue-500/10 border border-blue-500/15 p-4">
+                <div className="rounded-xl bg-blue-500/10 border border-blue-500/15 p-4 backdrop-blur-sm">
                   <p className="text-[10px] uppercase tracking-[0.2em] text-blue-300">arXiv Papers</p>
                   <p className="mt-1.5 text-2xl font-bold text-blue-400">{feed?.sources.arxiv ?? 0}</p>
                 </div>
-                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/15 p-4">
+                <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/15 p-4 backdrop-blur-sm">
                   <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-300">Journals</p>
                   <p className="mt-1.5 text-2xl font-bold text-emerald-400">{feed?.sources.crossref ?? 0}</p>
                 </div>
-                <div className="rounded-xl bg-indigo-500/10 border border-indigo-500/15 p-4">
+                <div className="rounded-xl bg-indigo-500/10 border border-indigo-500/15 p-4 backdrop-blur-sm">
                   <p className="text-[10px] uppercase tracking-[0.2em] text-indigo-300">Open Source</p>
                   <p className="mt-1.5 text-2xl font-bold text-indigo-400">{feed?.sources.github ?? 0}</p>
                 </div>
@@ -489,7 +532,7 @@ export default function InnovationPage() {
                               {item.sourceName}
                             </span>
                             <span className="text-[10px] text-zinc-600">
-                              {new Date(item.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                              {formatItemDate(item.publishedAt)}
                             </span>
                           </div>
                           <h3 className="line-clamp-2 font-bold text-white group-hover:text-violet-300 transition-colors">
@@ -582,7 +625,7 @@ export default function InnovationPage() {
                           </span>
                         )}
                         <span className="text-[10px] text-zinc-600">
-                          {new Date(item.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          {formatItemDate(item.publishedAt)}
                         </span>
                       </div>
                       <h3 className="line-clamp-2 font-bold text-white group-hover:text-blue-300 transition-colors">{item.title}</h3>
@@ -813,13 +856,13 @@ export default function InnovationPage() {
                 <p className="text-[11px] uppercase tracking-[0.16em] text-violet-300">{selectedStory.sourceName}</p>
                 <h3 className="mt-1 text-2xl font-bold text-white">{selectedStory.title}</h3>
                 <p className="mt-1 text-xs text-zinc-500">
-                  {new Date(selectedStory.publishedAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  {formatItemDate(selectedStory.publishedAt)}
                   {selectedStory.category ? ` • ${selectedStory.category}` : ""}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedStory(null)}
+                onClick={() => { setSelectedStory(null); setAiSummary(""); }}
                 className="rounded-md border border-white/15 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-white/10"
               >
                 Close
@@ -845,7 +888,26 @@ export default function InnovationPage() {
               <p>{selectedStory.content || "Full-source text is not available for this article yet. Use the original source link for full coverage."}</p>
             </div>
 
+            {/* AI Summarization */}
             <div className="mt-5 border-t border-white/10 pt-4">
+              <button
+                type="button"
+                onClick={handleAISummarize}
+                disabled={aiSummaryLoading}
+                className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-bold text-white hover:bg-violet-500 transition-colors disabled:opacity-50"
+              >
+                {aiSummaryLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+                {aiSummaryLoading ? "Summarizing..." : "AI Summarize"}
+              </button>
+              {aiSummary && (
+                <div className="mt-4 rounded-xl border border-violet-500/20 bg-violet-500/8 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-violet-300 mb-2">AI Summary</p>
+                  <div className="text-sm leading-relaxed text-zinc-300 whitespace-pre-line">{aiSummary}</div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 border-t border-white/10 pt-4">
               <a
                 href={selectedStory.url}
                 target="_blank"
