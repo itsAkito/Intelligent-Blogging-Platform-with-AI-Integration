@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 // Update user role (admin only)
 export async function PUT(request: NextRequest) {
   try {
-    const admin = await verifyAdmin();
+    const admin = await verifyAdmin(request);
     if (!admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -157,7 +157,7 @@ export async function PUT(request: NextRequest) {
 // Delete user (admin only)
 export async function DELETE(request: NextRequest) {
   try {
-    const admin = await verifyAdmin();
+    const admin = await verifyAdmin(request);
     if (!admin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

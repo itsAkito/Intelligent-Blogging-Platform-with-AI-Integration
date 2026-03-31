@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import AdminSideNav from "@/components/AdminSideNav";
 import AdminTopNav from "@/components/AdminTopNav";
 import { useAuth } from "@/context/AuthContext";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,13 +23,19 @@ interface User {
 
 export default function UsersManagementPage() {
   const { user, isAdmin } = useAuth();
+  const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   useEffect(() => {
-    if (!user) redirect("/auth");
-    if (user && !isAdmin) redirect("/dashboard");
-  }, [user, isAdmin]);
+    if (!user) {
+      router.push("/auth");
+      return;
+    }
+    if (user && !isAdmin) {
+      router.push("/dashboard");
+    }
+  }, [user, isAdmin, router]);
   const [formData, setFormData] = useState({ email: "", name: "", role: "creator" });
   const [stats, setStats] = useState<any>(null);
   const [search, setSearch] = useState("");
@@ -42,7 +48,10 @@ export default function UsersManagementPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch("/api/admin/users");
+      const response = await fetch("/api/admin/users", { credentials: "include", cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("Failed to fetch users");
+      }
       const data = await response.json();
       setUsers(data.users || []);
       setStats(data.stats);
@@ -56,6 +65,7 @@ export default function UsersManagementPage() {
     try {
       const response = await fetch("/api/admin/users", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
@@ -72,7 +82,7 @@ export default function UsersManagementPage() {
   const handleDeleteUser = async (userId: string) => {
     if (!confirm("Are you sure you want to delete this user?")) return;
     try {
-      const response = await fetch(`/api/admin/users?id=${userId}`, { method: "DELETE" });
+      const response = await fetch(`/api/admin/users?id=${userId}`, { method: "DELETE", credentials: "include" });
       if (response.ok) fetchUsers();
     } catch (error) {
       console.error("Failed to delete user:", error);
@@ -83,6 +93,7 @@ export default function UsersManagementPage() {
     try {
       const response = await fetch("/api/admin/users", {
         method: "PUT",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, role: newRole }),
       });
@@ -123,7 +134,7 @@ export default function UsersManagementPage() {
           </div>
           <Button
             onClick={() => setShowCreateForm(!showCreateForm)}
-            className="bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all text-xs"
+            className="bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all text-xs"
           >
             <span className="material-symbols-outlined text-sm mr-1">person_add</span>
             Add User

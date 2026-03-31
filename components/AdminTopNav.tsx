@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -101,6 +102,9 @@ export default function AdminTopNav({ activePage = "overview" }: AdminTopNavProp
           <Link href="/admin" className={activePage === "overview" ? "text-blue-400 font-bold" : "text-zinc-500 hover:text-blue-300 transition-colors"}>
             Platform
           </Link>
+          <Link href="/admin/posts" className={activePage === "posts" ? "text-blue-400 font-bold" : "text-zinc-500 hover:text-blue-300 transition-colors"}>
+            CMS
+          </Link>
           <Link href="/admin/analytics" className={activePage === "analytics" ? "text-blue-400 font-bold" : "text-zinc-500 hover:text-blue-300 transition-colors"}>
             Insights
           </Link>
@@ -158,9 +162,11 @@ export default function AdminTopNav({ activePage = "overview" }: AdminTopNavProp
                       className="block px-4 py-3 border-b border-outline-variant/10 hover:bg-white/5"
                     >
                       <div className="flex items-center gap-2">
-                        <img
+                        <Image
                           src={post.author_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.author_id || post.author_name || post.id}`}
                           alt="author"
+                          width={24}
+                          height={24}
                           className="w-6 h-6 rounded-full object-cover"
                         />
                         <p className="text-xs text-zinc-200">
@@ -186,9 +192,11 @@ export default function AdminTopNav({ activePage = "overview" }: AdminTopNavProp
                       className="block px-4 py-3 border-b border-outline-variant/10 hover:bg-white/5"
                     >
                       <div className="flex items-center gap-2">
-                        <img
+                        <Image
                           src={comment.author_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${comment.user_id || comment.author_name || comment.id}`}
                           alt="comment-author"
+                          width={24}
+                          height={24}
                           className="w-6 h-6 rounded-full object-cover"
                         />
                         <p className="text-xs text-zinc-200">
@@ -226,10 +234,12 @@ export default function AdminTopNav({ activePage = "overview" }: AdminTopNavProp
             onClick={() => setShowDropdown(!showDropdown)}
             className="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant/20 overflow-hidden hover:border-blue-400 transition-colors"
           >
-            <img
+            <Image
               className="w-full h-full object-cover"
               alt="Admin avatar"
               src="https://api.dicebear.com/7.x/avataaars/svg?seed=admin"
+              width={32}
+              height={32}
             />
           </button>
           {showDropdown && (

@@ -7,8 +7,24 @@ export async function POST(_request: NextRequest) {
       { status: 200 }
     );
 
-    // Clear OTP session cookie
+    // Clear OTP/admin session cookies
+    response.cookies.set('otp_session_token', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    });
+
     response.cookies.set('otp_session', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    });
+
+    response.cookies.set('admin_session_token', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

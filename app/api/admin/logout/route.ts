@@ -9,24 +9,23 @@ import { NextResponse } from 'next/server';
 
 export async function POST() {
   try {
-    // Frontend should clear localStorage:
-    // localStorage.removeItem('adminToken');
-    // localStorage.removeItem('adminEmail');
-
-    // Return response indicating logout success
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         success: true,
         message: 'Admin logout successful'
       },
-      { 
-        status: 200,
-        // Clear any server-side cookies if used
-        headers: {
-          'Set-Cookie': 'adminToken=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax, admin_session_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax'
-        }
-      }
+      { status: 200 }
     );
+
+    response.cookies.set('admin_session_token', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/',
+    });
+
+    return response;
   } catch (error) {
     console.error('Admin logout error:', error);
     return NextResponse.json(

@@ -11,6 +11,17 @@ function isMissingCategoryColumn(error: unknown): boolean {
   return typeof message === 'string' && message.toLowerCase().includes('category');
 }
 
+async function tryReadJsonBody(request: NextRequest): Promise<Record<string, any>> {
+  const contentLength = request.headers.get('content-length');
+  if (contentLength === '0') return {};
+
+  try {
+    return await request.json();
+  } catch {
+    return {};
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -201,26 +212,25 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const body = await _request.json();
-    let userId = body.userId;
-    
-    const clerkAuth = await auth();
-    if (clerkAuth.userId) {
-      userId = clerkAuth.userId;
-    } else {
-      const otpSession = _request.cookies.get("otp_session");
-      if (!otpSession?.value && !userId) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized - userId required' }, { status: 401 });
-      }
-    }
-    
+    const body = await tryReadJsonBody(_request);
+    let userId = body.userId || (await getAuthUserId(_request));
+
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
     const supabase = await createClient();
+
+    let isAdmin = false;
+    const { data: requesterProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (requesterProfile?.role === 'admin') {
+      isAdmin = true;
+    }
 
     const { data: existingPost, error: existingPostError } = await supabase
       .from('posts')
@@ -232,8 +242,8 @@ export async function DELETE(
       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
-    if (existingPost.author_id !== userId) {
-      return NextResponse.json({ error: 'Only owner can delete this post' }, { status: 403 });
+    if (existingPost.author_id !== userId && !isAdmin) {
+      return NextResponse.json({ error: 'Only the owner or an admin can delete this post' }, { status: 403 });
     }
 
     const { error } = await supabase.from('posts').delete().eq('id', id);
@@ -245,15 +255,16 @@ export async function DELETE(
 
     await logActivity({
       userId,
-      activityType: 'post_deleted',
+      activityType: isAdmin ? 'admin_post_deleted' : 'post_deleted',
       entityType: 'post',
       entityId: id,
       metadata: {
         title: existingPost.title || null,
+        deletedByAdmin: isAdmin,
       },
     });
 
-    return NextResponse.json({ message: 'Post deleted successfully' });
+    return NextResponse.json({ message: isAdmin ? 'Post deleted by admin' : 'Post deleted successfully' });
   } catch (error) {
     console.error('Delete post error:', error);
     return NextResponse.json(

@@ -17,7 +17,7 @@ export default function ConsentModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div className="fixed inset-0 z-200 flex items-center justify-center bg-black/70 backdrop-blur-sm">
       <div className="relative bg-surface-container border border-outline-variant/20 rounded-3xl p-8 max-w-lg w-full mx-4 shadow-2xl shadow-black/50">
         {/* Icon */}
         <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-5">

@@ -8,17 +8,23 @@ import ProgressionEditor from "@/components/admin/ProgressionEditor";
 import AIInsightsPanel from "@/components/admin/AIInsightsPanel";
 import CareerPathVisualizer from "@/components/admin/CareerPathVisualizer";
 import { useAuth } from "@/context/AuthContext";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function CareerPathsPage() {
   const { user, isAdmin } = useAuth();
+  const router = useRouter();
   const [selectedTrack, setSelectedTrack] = useState<any>(null);
   const [tracks, setTracks] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!user) redirect("/auth");
-    if (user && !isAdmin) redirect("/dashboard");
-  }, [user, isAdmin]);
+    if (!user) {
+      router.push("/auth");
+      return;
+    }
+    if (user && !isAdmin) {
+      router.push("/dashboard");
+    }
+  }, [user, isAdmin, router]);
 
   useEffect(() => {
     fetchCareerTracks();
@@ -56,7 +62,7 @@ export default function CareerPathsPage() {
               <span className="material-symbols-outlined text-sm mr-1 align-middle">download</span>
               Export Schema
             </button>
-            <button className="px-5 py-2.5 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed rounded-lg text-xs font-bold hover:scale-[1.02] transition-all shadow-lg shadow-primary/20">
+            <button className="px-5 py-2.5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-lg text-xs font-bold hover:scale-[1.02] transition-all shadow-lg shadow-primary/20">
               <span className="material-symbols-outlined text-sm mr-1 align-middle">add</span>
               New Track
             </button>

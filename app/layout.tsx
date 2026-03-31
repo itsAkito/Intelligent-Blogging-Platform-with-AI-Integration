@@ -46,9 +46,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <ClerkProvider appearance={{ baseTheme: dark }}>
       <html lang="en" className={`dark scroll-smooth ${inter.variable} ${manrope.variable}`}>
-        <head>
-          <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" />
-        </head>
         <body className="font-body selection:bg-primary/30 overflow-x-hidden">
           <AuthProvider>
             <AppProvider>

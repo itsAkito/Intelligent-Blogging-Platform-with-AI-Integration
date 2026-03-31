@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const publicAdminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,6 +32,7 @@ export default function AdminLoginPage() {
       const response = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
       const data = await response.json();
@@ -38,7 +41,14 @@ export default function AdminLoginPage() {
         throw new Error(data.error || "Admin login failed");
       }
 
-      router.push("/");
+      if (typeof window !== "undefined") {
+        localStorage.setItem("admin_session_start", Date.now().toString());
+      }
+
+      const nextPath = searchParams.get("next");
+      const target = nextPath && nextPath.startsWith("/admin") ? nextPath : "/admin";
+
+      router.push(target);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -50,15 +60,15 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Left Panel — Branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-gradient-to-br from-primary/10 via-background to-secondary/5 items-center justify-center p-12">
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-linear-to-br from-primary/10 via-background to-secondary/5 items-center justify-center p-12">
         <div className="absolute inset-0 -z-10">
-          <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-primary/8 rounded-full blur-[120px]"></div>
-          <div className="absolute bottom-1/4 right-1/4 w-[300px] h-[300px] bg-secondary/6 rounded-full blur-[100px]"></div>
+          <div className="absolute top-1/3 left-1/4 w-100 h-100 bg-primary/8 rounded-full blur-[120px]"></div>
+          <div className="absolute bottom-1/4 right-1/4 w-75 h-75 bg-secondary/6 rounded-full blur-[100px]"></div>
         </div>
         <div className="max-w-md">
           <Link
             href="/"
-            className="text-2xl font-extrabold font-headline tracking-tighter bg-gradient-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent"
+            className="text-2xl font-extrabold font-headline tracking-tighter bg-linear-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent"
           >
             AiBlog
           </Link>
@@ -166,7 +176,7 @@ export default function AdminLoginPage() {
           {/* Security Notice */}
           <div className="mt-8 p-4 rounded-lg bg-primary/5 border border-primary/10">
             <p className="text-xs text-on-surface-variant flex items-start gap-2">
-              <span className="material-symbols-outlined text-sm text-primary flex-shrink-0 mt-0.5">
+              <span className="material-symbols-outlined text-sm text-primary shrink-0 mt-0.5">
                 lock
               </span>
               <span>

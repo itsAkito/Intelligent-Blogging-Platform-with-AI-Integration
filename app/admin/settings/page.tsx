@@ -4,15 +4,21 @@ import { useState, useEffect, useCallback } from "react";
 import AdminSideNav from "@/components/AdminSideNav";
 import AdminTopNav from "@/components/AdminTopNav";
 import { useAuth } from "@/context/AuthContext";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function AdminSettingsPage() {
   const { user, isAdmin } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    if (!user) redirect("/auth");
-    if (user && !isAdmin) redirect("/dashboard");
-  }, [user, isAdmin]);
+    if (!user) {
+      router.push("/auth");
+      return;
+    }
+    if (user && !isAdmin) {
+      router.push("/dashboard");
+    }
+  }, [user, isAdmin, router]);
   const [activeSection, setActiveSection] = useState("general");
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(true);
@@ -119,7 +125,7 @@ export default function AdminSettingsPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-5 py-2.5 bg-gradient-to-r from-primary to-primary-container text-on-primary-fixed rounded-lg text-xs font-bold hover:scale-[1.02] transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
+            className="px-5 py-2.5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-lg text-xs font-bold hover:scale-[1.02] transition-all shadow-lg shadow-primary/20 disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save All Changes"}
           </button>
@@ -185,7 +191,7 @@ export default function AdminSettingsPage() {
                       onClick={() => setMaintenanceMode(!maintenanceMode)}
                       className={`relative w-12 h-6 rounded-full transition-colors ${maintenanceMode ? "bg-red-500" : "bg-surface-container-highest"}`}
                     >
-                      <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${maintenanceMode ? "left-[26px]" : "left-0.5"}`}></div>
+                      <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${maintenanceMode ? "left-6.5" : "left-0.5"}`}></div>
                     </button>
                   </div>
                   <div className="flex items-center justify-between">
@@ -197,7 +203,7 @@ export default function AdminSettingsPage() {
                       onClick={() => setRegistrationOpen(!registrationOpen)}
                       className={`relative w-12 h-6 rounded-full transition-colors ${registrationOpen ? "bg-green-500" : "bg-surface-container-highest"}`}
                     >
-                      <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${registrationOpen ? "left-[26px]" : "left-0.5"}`}></div>
+                      <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${registrationOpen ? "left-6.5" : "left-0.5"}`}></div>
                     </button>
                   </div>
                 </div>
@@ -385,7 +391,7 @@ export default function AdminSettingsPage() {
                         <p className="text-xs text-on-surface-variant">{setting.desc}</p>
                       </div>
                       <div className={`relative w-12 h-6 rounded-full transition-colors ${setting.enabled ? "bg-green-500" : "bg-surface-container-highest"}`}>
-                        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${setting.enabled ? "left-[26px]" : "left-0.5"}`}></div>
+                        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${setting.enabled ? "left-6.5" : "left-0.5"}`}></div>
                       </div>
                     </div>
                   ))}
@@ -431,7 +437,7 @@ export default function AdminSettingsPage() {
                         <p className="text-xs text-on-surface-variant">{n.desc}</p>
                       </div>
                       <div className={`relative w-12 h-6 rounded-full transition-colors ${n.enabled ? "bg-green-500" : "bg-surface-container-highest"}`}>
-                        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${n.enabled ? "left-[26px]" : "left-0.5"}`}></div>
+                        <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${n.enabled ? "left-6.5" : "left-0.5"}`}></div>
                       </div>
                     </div>
                   ))}

@@ -2,9 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: false, // disable to avoid double-render warnings that slow dev
-  experimental: {
-    optimizePackageImports: ["lucide-react", "@radix-ui/react-icons", "framer-motion"],
-  },
   // SWC minification is the default in Next.js 15, no config needed.
   // Serve static assets with long-lived cache headers, preventing 404 on stale chunks
   async headers() {

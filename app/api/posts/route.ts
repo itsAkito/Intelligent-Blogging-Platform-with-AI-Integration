@@ -13,33 +13,6 @@ type SearchablePost = {
   created_at?: string;
 };
 
-function isSmokeVerificationPost(post: SearchablePost): boolean {
-  const title = (post.title || '').toLowerCase();
-  const excerpt = (post.excerpt || '').toLowerCase();
-  const content = (post.content || '').toLowerCase();
-  const topic = (post.topic || '').toLowerCase();
-  const category = (post.category || '').toLowerCase();
-
-  const categoryHit = category.includes('smoke') || category.includes('verification');
-  const contentHit =
-    title.includes('smoke category post') ||
-    title.includes('smoke verification') ||
-    excerpt.includes('smoke verification') ||
-    topic.includes('smoke verification') ||
-    content.includes('smoke verification') ||
-    excerpt.includes('smoke category') ||
-    content.includes('smoke category') ||
-    title.includes('placeholder') ||
-    title.includes('dummy') ||
-    title.includes('test post') ||
-    title.includes('verification post') ||
-    title.includes('sample post') ||
-    title.includes('seeded post') ||
-    title.includes('smoke ');
-
-  return categoryHit || contentHit;
-}
-
 function isMissingCategoryColumn(error: unknown): boolean {
   const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
   const message = typeof error === 'object' && error !== null ? (error as { message?: string }).message : undefined;
@@ -85,6 +58,23 @@ function computeSearchRelevance(post: SearchablePost, query: string): number {
   return score;
 }
 
+function hasAdminSessionCookie(request: NextRequest): boolean {
+  try {
+    const adminSessionToken = request.cookies.get('admin_session_token')?.value;
+    const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').toLowerCase();
+
+    if (!adminSessionToken || !adminEmail) {
+      return false;
+    }
+
+    const decoded = Buffer.from(adminSessionToken, 'base64').toString('utf8');
+    const [email] = decoded.split(':');
+    return email?.toLowerCase() === adminEmail;
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -96,6 +86,8 @@ export async function GET(request: NextRequest) {
     const topic = searchParams.get('topic');
     const category = searchParams.get('category');
     const status = searchParams.get('status');
+    const authUserId = await getAuthUserId(request);
+    const isAdminSession = hasAdminSessionCookie(request);
 
     // Validate Supabase is configured
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY.includes('placeholder')) {
@@ -107,11 +99,29 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = await createClient();
+    let requesterRole: string | null = null;
+
+    if (authUserId) {
+      const { data: requesterProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', authUserId)
+        .maybeSingle();
+      requesterRole = requesterProfile?.role || null;
+    }
+
+    const isAdmin = isAdminSession || requesterRole === 'admin';
+    const isOwnContentRequest = Boolean(userId && authUserId && userId === authUserId);
+    const canSeeUnpublished = isAdmin || isOwnContentRequest;
     let query = supabase
       .from('posts')
       .select('*, profiles(id, name, avatar_url)', { count: 'exact' });
 
     if (published) {
+      query = query.eq('status', 'published');
+    } else if (status && canSeeUnpublished) {
+      query = query.eq('status', status);
+    } else if (!canSeeUnpublished) {
       query = query.eq('status', 'published');
     }
 
@@ -131,10 +141,6 @@ export async function GET(request: NextRequest) {
       query = query.eq('category', category);
     }
 
-    if (status) {
-      query = query.eq('status', status);
-    }
-
     const offset = (page - 1) * limit;
     let categoryFilterUnavailable = false;
 
@@ -151,6 +157,10 @@ export async function GET(request: NextRequest) {
 
       if (published) {
         fallbackQuery = fallbackQuery.eq('status', 'published');
+      } else if (status && canSeeUnpublished) {
+        fallbackQuery = fallbackQuery.eq('status', status);
+      } else if (!canSeeUnpublished) {
+        fallbackQuery = fallbackQuery.eq('status', 'published');
       }
 
       if (userId) {
@@ -163,10 +173,6 @@ export async function GET(request: NextRequest) {
 
       if (topic) {
         fallbackQuery = fallbackQuery.eq('topic', topic);
-      }
-
-      if (status) {
-        fallbackQuery = fallbackQuery.eq('status', status);
       }
 
       const fallbackResult = await fallbackQuery
@@ -189,7 +195,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const filteredData = (data || []).filter((post: any) => !isSmokeVerificationPost(post));
+    const filteredData = data || [];
 
     const postIds = filteredData.map((post: any) => post.id).filter(Boolean);
     const likesByPostId = new Map<string, number>();
@@ -197,8 +203,6 @@ export async function GET(request: NextRequest) {
     const likedByCurrentUser = new Set<string>();
 
     if (postIds.length > 0) {
-      const authUserId = await getAuthUserId(request);
-
       const [{ data: likeRows, error: likesError }, { data: commentRows, error: commentsError }] = await Promise.all([
         supabase
           .from('post_likes')

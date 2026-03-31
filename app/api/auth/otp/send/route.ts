@@ -29,13 +29,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
+    const normalizedEmail = String(email).trim().toLowerCase();
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail)) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
     }
 
     const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@gmail.com';
-    if (email.toLowerCase() === adminEmail.toLowerCase()) {
+    if (normalizedEmail === adminEmail.toLowerCase()) {
       return NextResponse.json(
         { error: 'Admin email must use admin email/password login.' },
         { status: 403 }
@@ -64,7 +66,7 @@ export async function POST(request: NextRequest) {
       const { error: dbError } = await supabase
         .from('otp_codes')
         .upsert(
-          [{ email, code: otp, expires_at: expiresAt, verified: false }],
+          [{ email: normalizedEmail, code: otp, expires_at: expiresAt, verified: false }],
           { onConflict: 'email' }
         );
 
@@ -118,7 +120,7 @@ export async function POST(request: NextRequest) {
         async () => {
           await transporter.sendMail({
             from: process.env.SMTP_FROM || `AiBlog <${process.env.SMTP_USER}>`,
-            to: email,
+            to: normalizedEmail,
             subject: 'Your AiBlog Login Code',
             html: `
               <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px; background: #121212; color: #e0e0e0;">

@@ -38,7 +38,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<string>("user");
   const [showConsent, setShowConsent] = useState(false);
   const router = useRouter();
-  const CONSENT_KEY = "aiblog_user_consent_accepted";
+  const consentSubjectId = clerkUser?.id || profile?.id || null;
+  const consentKey = consentSubjectId ? `aiblog_user_consent_accepted:${consentSubjectId}` : null;
 
   // Don't show consent modal for admin routes
   const isAdminRoute = pathname?.includes("/admin");
@@ -177,9 +178,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, [isLoaded, isSignedIn, clerkUser, syncUserToSupabase, loadOtpUser, isAuthRoute]);
 
+  const isAuthenticated = !!isSignedIn || !!profile;
+
   useEffect(() => {
     if (loading) return;
-    if (isAdminRoute) {
+    if (!isAuthenticated || isAdminRoute || isAuthRoute) {
       setShowConsent(false);
       return;
     }
@@ -190,29 +193,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const onDashboardRoute = pathname?.startsWith("/dashboard");
-    if (!onDashboardRoute) {
+    if (!consentKey || typeof window === "undefined") {
       setShowConsent(false);
       return;
     }
 
-    const hasConsent = typeof window !== "undefined" && localStorage.getItem(CONSENT_KEY) === "true";
+    const hasConsent = localStorage.getItem(consentKey) === "true";
     setShowConsent(!hasConsent);
-  }, [loading, role, pathname, isAdminRoute]);
-
-  const isAuthenticated = !!isSignedIn || !!profile;
+  }, [loading, role, isAuthenticated, isAdminRoute, isAuthRoute, consentKey]);
 
   const handleConsentAccept = async () => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(CONSENT_KEY, "true");
+    if (typeof window !== "undefined" && consentKey) {
+      localStorage.setItem(consentKey, "true");
     }
     setShowConsent(false);
     setLoading(false);
   };
 
   const handleConsentDeny = async () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(CONSENT_KEY);
+    if (typeof window !== "undefined" && consentKey) {
+      localStorage.removeItem(consentKey);
     }
     setShowConsent(false);
     if (isSignedIn) {
@@ -229,10 +229,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setProfile(null);
     setRole("user");
 
-    // Fire-and-forget: revoke OTP session and Clerk session in the background
+    // Fire-and-forget: revoke OTP/admin sessions and Clerk session in the background
     void fetch("/api/auth/otp/session", { method: "DELETE", credentials: "include" }).catch(() => {});
+    void fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+    void fetch("/api/admin/logout", { method: "POST", credentials: "include" }).catch(() => {});
     if (isSignedIn) {
       clerkSignOut().catch(() => {});
+    }
+
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("admin_session_start");
     }
 
     router.push("/");

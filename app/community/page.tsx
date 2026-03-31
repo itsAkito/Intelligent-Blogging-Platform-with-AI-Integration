@@ -18,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/context/AuthContext";
 import { Heart, Share2 } from "lucide-react";
+import { AiBadge } from "@/components/AiBadge";
 import { getUserAccentColor } from "@/lib/utils";
 import { emitLikeUpdate, subscribeLikeUpdates } from "@/lib/like-sync";
 
@@ -925,6 +926,7 @@ function CommunityContent() {
                     <div className="flex items-center gap-2">
                       <span className="material-symbols-outlined text-primary text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
                       <h3 className="font-headline text-sm font-bold text-on-surface">Recommended For You</h3>
+                      <AiBadge variant="compact" />
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0 space-y-2.5">

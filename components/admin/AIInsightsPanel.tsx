@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { AiBadge } from "@/components/AiBadge";
 
 interface AISuggestion {
   id: string;
@@ -72,6 +73,7 @@ export default function AIInsightsPanel() {
           <span className="text-[10px] font-bold uppercase tracking-widest text-secondary font-label">
             AI Demand Insight
           </span>
+          <AiBadge variant="compact" />
         </div>
 
         {insight ? (
@@ -102,6 +104,7 @@ export default function AIInsightsPanel() {
           <span className="text-[10px] font-bold uppercase tracking-widest text-tertiary font-label">
             Path Suggestions
           </span>
+          <AiBadge variant="chip" label="AI-assisted" />
         </div>
 
         <div className="space-y-4">

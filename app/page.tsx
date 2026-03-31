@@ -12,8 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
+import Navbar from "@/components/NavBar";
 
-const Navbar = dynamic(() => import("@/components/NavBar"), { ssr: false });
 const Footer = dynamic(() => import("@/components/Footer"));
 const CookieBanner = dynamic(() => import("@/components/CookieBanner"), { ssr: false });
 
@@ -483,18 +483,16 @@ export default function Home() {
 
                   <div className="xl:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-3">
                     {researchFeed.slice(0, 3).map((item) => (
-                      <a
+                      <Link
                         key={`research-${item.id}`}
-                        href={item.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href={`/innovation?tab=research&story=${encodeURIComponent(item.id)}`}
                         className="group relative overflow-hidden rounded-xl border border-white/10 bg-zinc-900/35 p-4 hover:border-emerald-300/40 transition-all"
                       >
                         <div className="absolute inset-0 bg-linear-to-br from-emerald-400/20 via-zinc-300/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         <p className="relative text-[10px] uppercase tracking-[0.16em] text-emerald-200 font-semibold">Research</p>
                         <h3 className="relative mt-2 text-sm font-bold text-white line-clamp-2">{item.title}</h3>
                         <p className="relative mt-2 text-xs text-zinc-300/80 line-clamp-3">{item.summary}</p>
-                      </a>
+                      </Link>
                     ))}
 
                     {worldNews.slice(0, 3).map((item) => (
@@ -558,11 +556,9 @@ export default function Home() {
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 relative">
                 {researchFeed.length > 0 ? (
                   researchFeed.map((item) => (
-                    <a
+                    <Link
                       key={item.id}
-                      href={item.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={`/innovation?tab=research&story=${encodeURIComponent(item.id)}`}
                       className="group relative rounded-2xl border border-white/10 bg-white/4 p-4 hover:bg-white/8 hover:border-cyan-400/40 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-cyan-400/10 overflow-hidden block"
                     >
                       <div className="absolute inset-0 bg-linear-to-br from-cyan-500/8 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -574,7 +570,7 @@ export default function Home() {
                       <h3 className="text-sm font-bold text-white line-clamp-2">{item.title}</h3>
                       <p className="text-xs text-cyan-100/75 line-clamp-3 mt-2">{item.summary}</p>
                       <p className="text-[11px] text-cyan-200 mt-3 font-semibold">Source: {item.sourceName}</p>
-                    </a>
+                    </Link>
                   ))
                 ) : (
                   <p className="text-sm text-cyan-100/70">Research feed is warming up. Check back in a moment.</p>

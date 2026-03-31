@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import Navbar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import {
@@ -117,6 +118,7 @@ const toReadableItem = (item: InnovationItem | NewsItem): ReadableItem => ({
 });
 
 export default function InnovationPage() {
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [newsLoading, setNewsLoading] = useState(true);
   const [feed, setFeed] = useState<InnovationFeed | null>(null);
@@ -228,6 +230,46 @@ export default function InnovationPage() {
       .slice(0, 5)
       .map((entry) => entry.item);
   }, [geopolitics, researchItems, selectedStory, worldNews]);
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "news" || tabParam === "research" || tabParam === "community") {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const storyId = searchParams.get("story");
+    if (!storyId) return;
+
+    const tabParam = searchParams.get("tab");
+    const pools: ReadableItem[] = [];
+
+    if (!tabParam || tabParam === "research") {
+      pools.push(...researchItems.map(toReadableItem));
+    }
+    if (!tabParam || tabParam === "news") {
+      pools.push(...worldNews.map(toReadableItem), ...geopolitics.map(toReadableItem));
+    }
+    if (!tabParam || tabParam === "community") {
+      pools.push(
+        ...posts.map((post) => ({
+          id: post.id,
+          title: post.title,
+          summary: post.excerpt || "Community story from AiBlog.",
+          sourceName: post.author_username || "Community",
+          category: post.category || "Community",
+          publishedAt: post.created_at,
+          url: `/blog/${post.slug}`,
+        }))
+      );
+    }
+
+    const matchedStory = pools.find((item) => item.id === storyId);
+    if (matchedStory) {
+      setSelectedStory(matchedStory);
+    }
+  }, [geopolitics, posts, researchItems, searchParams, worldNews]);
 
   return (
     <>

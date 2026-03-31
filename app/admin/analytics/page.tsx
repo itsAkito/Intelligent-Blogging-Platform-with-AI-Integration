@@ -3,16 +3,23 @@
 import { useState, useEffect } from "react";
 import AdminSideNav from "@/components/AdminSideNav";
 import AdminTopNav from "@/components/AdminTopNav";
+import { AiBadge } from "@/components/AiBadge";
 import { useAuth } from "@/context/AuthContext";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 
 export default function AnalyticsPage() {
   const { user, isAdmin } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
-    if (!user) redirect("/auth");
-    if (user && !isAdmin) redirect("/dashboard");
-  }, [user, isAdmin]);
+    if (!user) {
+      router.push("/auth");
+      return;
+    }
+    if (user && !isAdmin) {
+      router.push("/dashboard");
+    }
+  }, [user, isAdmin, router]);
   const [timeRange, setTimeRange] = useState("30d");
   const [platformStats, setPlatformStats] = useState({
     totalViews: 0,
@@ -128,15 +135,18 @@ export default function AnalyticsPage() {
         {/* Summary Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {[
-            { label: "Total Views", value: platformStats.totalViews.toLocaleString(), icon: "visibility", change: "+18%", color: "text-primary" },
-            { label: "Published Posts", value: platformStats.totalPosts.toLocaleString(), icon: "article", change: "+12%", color: "text-secondary" },
-            { label: "AI Generations", value: platformStats.aiGenerations.toLocaleString(), icon: "auto_awesome", change: "+34%", color: "text-tertiary" },
-            { label: "Avg Engagement", value: `${platformStats.avgEngagement}%`, icon: "trending_up", change: "+5%", color: "text-green-400" },
+            { label: "Total Views", value: platformStats.totalViews.toLocaleString(), icon: "visibility", change: "+18%", color: "text-primary", aiDerived: false },
+            { label: "Published Posts", value: platformStats.totalPosts.toLocaleString(), icon: "article", change: "+12%", color: "text-secondary", aiDerived: false },
+            { label: "AI Generations", value: platformStats.aiGenerations.toLocaleString(), icon: "auto_awesome", change: "+34%", color: "text-tertiary", aiDerived: true },
+            { label: "Avg Engagement", value: `${platformStats.avgEngagement}%`, icon: "trending_up", change: "+5%", color: "text-green-400", aiDerived: true },
           ].map((s) => (
             <div key={s.label} className="glass-panel rounded-xl p-6">
               <div className="flex items-center justify-between mb-3">
                 <span className={`material-symbols-outlined ${s.color}`}>{s.icon}</span>
-                <span className="text-xs font-bold text-green-400">{s.change}</span>
+                <div className="flex items-center gap-2">
+                  {s.aiDerived && <AiBadge variant="compact" />}
+                  <span className="text-xs font-bold text-green-400">{s.change}</span>
+                </div>
               </div>
               <span className="text-3xl font-extrabold font-headline block">{s.value}</span>
               <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">{s.label}</span>

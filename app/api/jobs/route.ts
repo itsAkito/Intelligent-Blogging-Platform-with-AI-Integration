@@ -52,7 +52,13 @@ export async function GET(request: NextRequest) {
     const response = await fetch(url, { next: { revalidate: 300 } }); // Cache 5 min
 
     if (!response.ok) {
-      throw new Error(`Adzuna API error: ${response.status}`);
+      console.warn(`Adzuna API warning: ${response.status}. Falling back to sample jobs.`);
+      return NextResponse.json({
+        jobs: getSampleJobs(country),
+        total: 20,
+        page,
+        message: `Showing sample data due to Adzuna API status ${response.status}.`,
+      });
     }
 
     const data = await response.json();

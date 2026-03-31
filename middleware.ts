@@ -56,13 +56,13 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
         const response = await fetch(new URL("/api/user/profile", req.url), {
           headers: {
             cookie: req.headers.get("cookie") || "",
-            authorization: `Bearer ${req.headers.get("authorization") || ""}`,
           },
         });
 
         if (response.ok) {
-          const profile = await response.json();
-          userRole = profile.role || "user";
+          const profilePayload = await response.json();
+          const resolvedProfile = profilePayload?.profile || profilePayload;
+          userRole = resolvedProfile?.role || "user";
           isAuthenticated = true;
         }
       } else if (otpSessionToken) {

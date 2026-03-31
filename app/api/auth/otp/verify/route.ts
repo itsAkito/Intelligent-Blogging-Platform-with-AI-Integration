@@ -10,8 +10,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email and code are required' }, { status: 400 });
     }
 
+    const normalizedEmail = String(email).trim().toLowerCase();
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
+    if (!emailRegex.test(normalizedEmail)) {
       return NextResponse.json({ error: 'Invalid email address' }, { status: 400 });
     }
 
@@ -21,7 +23,7 @@ export async function POST(request: NextRequest) {
     const { data: otpRecord, error: fetchError } = await supabase
       .from('otp_codes')
       .select('*')
-      .eq('email', email)
+      .eq('email', normalizedEmail)
       .eq('code', code.trim())
       .eq('verified', false)
       .order('created_at', { ascending: false })
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
     if (fetchError || !otpRecord) {
       // Log failed attempt (non-fatal)
       void supabase.from('otp_login_audit').insert({
-        email,
+        email: normalizedEmail,
         status: 'wrong_code',
         device_info: request.headers.get('user-agent'),
         ip_address: request.headers.get('x-forwarded-for') || 'unknown',
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
     // Check expiry
     if (new Date(otpRecord.expires_at) < new Date()) {
       void supabase.from('otp_login_audit').insert({
-        email,
+        email: normalizedEmail,
         status: 'code_expired',
         device_info: request.headers.get('user-agent'),
         ip_address: request.headers.get('x-forwarded-for') || 'unknown',
@@ -54,12 +56,12 @@ export async function POST(request: NextRequest) {
     await supabase
       .from('otp_codes')
       .update({ verified: true })
-      .eq('email', email)
+      .eq('email', normalizedEmail)
       .eq('code', code);
 
     // Upsert user profile so they exist in the database
     const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@gmail.com';
-    if (email.toLowerCase() === adminEmail.toLowerCase()) {
+    if (normalizedEmail === adminEmail.toLowerCase()) {
       return NextResponse.json(
         { error: 'Admin email must use admin email/password login.' },
         { status: 403 }
@@ -67,8 +69,8 @@ export async function POST(request: NextRequest) {
     }
 
     const role = 'user';
-    const fallbackProfileId = `otp_${email.replace(/[^a-z0-9]/gi, '_')}`;
-    const userName = email.split('@')[0];
+    const fallbackProfileId = `otp_${normalizedEmail.replace(/[^a-z0-9]/gi, '_')}`;
+    const userName = normalizedEmail.split('@')[0];
 
     // Reuse existing profile by email when it already exists (e.g. Clerk-created rows).
     // This prevents unique email constraint violations when a profile for this email
@@ -76,7 +78,7 @@ export async function POST(request: NextRequest) {
     const existingProfileLookup = await supabase
       .from('profiles')
       .select('id, email, name, role, profile_image_url')
-      .eq('email', email)
+      .eq('email', normalizedEmail)
       .maybeSingle();
 
     const targetProfileId = existingProfileLookup.data?.id || fallbackProfileId;
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest) {
         .upsert(
           [{
             id: targetProfileId,
-            email,
+            email: normalizedEmail,
             name: userName,
             role,
             updated_at: new Date().toISOString(),
@@ -105,7 +107,7 @@ export async function POST(request: NextRequest) {
         profileResult = await supabase
           .from('profiles')
           .upsert(
-            [{ id: targetProfileId, email, name: userName, role }],
+            [{ id: targetProfileId, email: normalizedEmail, name: userName, role }],
             { onConflict: 'id' }
           )
           .select()
@@ -114,7 +116,7 @@ export async function POST(request: NextRequest) {
 
       if (profileResult.error) {
         // Last resort: try a plain insert, ignoring conflict.
-        await supabase.from('profiles').insert({ id: targetProfileId, email, name: userName, role }).select().maybeSingle();
+        await supabase.from('profiles').insert({ id: targetProfileId, email: normalizedEmail, name: userName, role }).select().maybeSingle();
         // Re-fetch after insert attempt
         const refetch = await supabase.from('profiles').select('id, email, name, role, profile_image_url').eq('id', targetProfileId).maybeSingle();
         if (refetch.data) {
@@ -126,14 +128,14 @@ export async function POST(request: NextRequest) {
 
       // If still no profile after all attempts, re-fetch by email one more time.
       if (!profile) {
-        const retryLookup = await supabase.from('profiles').select('id, email, name, role, profile_image_url').eq('email', email).maybeSingle();
+        const retryLookup = await supabase.from('profiles').select('id, email, name, role, profile_image_url').eq('email', normalizedEmail).maybeSingle();
         if (retryLookup.data) {
           profile = retryLookup.data;
         }
       }
 
       if (!profile) {
-        console.error('Profile creation failed for email:', email);
+        console.error('Profile creation failed for email:', normalizedEmail);
         return NextResponse.json(
           { error: 'Failed to create user profile. Please try again.' },
           { status: 500 }
@@ -150,7 +152,7 @@ export async function POST(request: NextRequest) {
       .from('otp_sessions')
       .insert({
         user_id: targetProfileId,
-        email,
+        email: normalizedEmail,
         session_token: sessionToken,
         device_info: request.headers.get('user-agent'),
         ip_address: request.headers.get('x-forwarded-for') || 'unknown',
@@ -170,7 +172,7 @@ export async function POST(request: NextRequest) {
 
     // Log successful login (non-fatal — table may not exist in all environments)
     void supabase.from('otp_login_audit').insert({
-      email,
+      email: normalizedEmail,
       user_id: targetProfileId,
       status: 'success',
       device_info: request.headers.get('user-agent'),
@@ -180,7 +182,7 @@ export async function POST(request: NextRequest) {
     // Prepare user object to send to client
     const userData = {
       id: profile?.id || targetProfileId,
-      email,
+      email: normalizedEmail,
       name: profile?.name || userName,
       avatar_url: profile?.profile_image_url || null,
       role: profile?.role || role,

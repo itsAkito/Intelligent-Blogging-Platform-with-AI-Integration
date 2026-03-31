@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import Navbar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/context/AuthContext";
@@ -44,7 +45,7 @@ interface LikerProfile {
 export default function BlogPostPage() {
   const params = useParams();
   const slug = params.slug as string;
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
 
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -56,6 +57,7 @@ export default function BlogPostPage() {
   const [commentSuccess, setCommentSuccess] = useState("");
   const [liked, setLiked] = useState(false);
   const [likers, setLikers] = useState<LikerProfile[]>([]);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
 
   const fetchPost = useCallback(async () => {
     try {
@@ -244,6 +246,32 @@ export default function BlogPostPage() {
     }
   };
 
+  const handleDeleteComment = async (commentId: string) => {
+    if (!isAdmin) return;
+    const confirmed = window.confirm("Delete this comment permanently?");
+    if (!confirmed) return;
+
+    try {
+      setDeletingCommentId(commentId);
+      const res = await fetch(`/api/admin/comments/${commentId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to delete comment");
+      }
+
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      setCommentSuccess("Comment deleted.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete comment");
+    } finally {
+      setDeletingCommentId(null);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString("en-US", {
       year: "numeric",
@@ -286,7 +314,7 @@ export default function BlogPostPage() {
         {post.cover_image_url && (
           <div className="w-full h-100 relative overflow-hidden">
             <div className="absolute inset-0 bg-linear-to-b from-transparent via-transparent to-background z-10"></div>
-            <img src={post.cover_image_url} alt={post.title} className="w-full h-full object-cover" />
+            <Image src={post.cover_image_url} alt={post.title} fill sizes="100vw" className="object-cover" />
           </div>
         )}
 
@@ -323,7 +351,7 @@ export default function BlogPostPage() {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-surface-container-high overflow-hidden">
                   {post.profiles?.avatar_url ? (
-                    <img src={post.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
+                    <Image src={post.profiles.avatar_url} alt="" width={40} height={40} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-on-surface-variant">
                       <span className="material-symbols-outlined">person</span>
@@ -438,7 +466,7 @@ export default function BlogPostPage() {
                     <div className="flex items-start gap-3">
                       <div className="w-9 h-9 rounded-full bg-surface-container-high overflow-hidden shrink-0">
                         {comment.profiles?.avatar_url ? (
-                          <img src={comment.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
+                            <Image src={comment.profiles.avatar_url} alt="" width={36} height={36} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-on-surface-variant text-sm">
                             <span className="material-symbols-outlined text-sm">person</span>
@@ -460,6 +488,19 @@ export default function BlogPostPage() {
                         <p className="text-sm text-on-surface-variant leading-relaxed whitespace-pre-wrap">
                           {comment.content}
                         </p>
+                        {isAdmin && (
+                          <div className="mt-3">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteComment(comment.id)}
+                              disabled={deletingCommentId === comment.id}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-400 hover:text-red-300 disabled:opacity-50"
+                            >
+                              <span className="material-symbols-outlined text-sm">delete</span>
+                              {deletingCommentId === comment.id ? "Deleting..." : "Delete comment"}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
