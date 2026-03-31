@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import Navbar from "@/components/NavBar";
 import SideNavBar from "@/components/SideNavBar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -804,9 +805,11 @@ function CommunityContent() {
                         {post.cover_image_url && (
                           <div className="px-5 pb-3">
                             <div className="rounded-xl overflow-hidden">
-                              <img
+                              <Image
                                 src={post.cover_image_url}
                                 alt={post.title}
+                                width={800}
+                                height={192}
                                 className="w-full h-48 object-cover group-hover:scale-[1.02] transition-transform duration-500"
                               />
                             </div>

@@ -73,7 +73,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (loading) return;
-    if (!user) { router.push("/auth"); return; }
+    if (!user) { router.push("/admin/login"); return; }
     if (!isAdmin) { router.push("/dashboard"); return; }
 
     // 2-hour admin session expiry

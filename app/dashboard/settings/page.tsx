@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import Navbar from "@/components/NavBar";
 import SideNavBar from "@/components/SideNavBar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -117,9 +118,11 @@ export default function SettingsPage() {
                   <div className="glass-panel rounded-2xl p-8">
                     <h2 className="text-xl font-bold font-headline mb-6">Profile Identity</h2>
                     <div className="flex items-center gap-6 mb-8">
-                      <img
+                      <Image
                         src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || "user"}`}
                         alt="Avatar"
+                        width={80}
+                        height={80}
                         className="w-20 h-20 rounded-xl border-2 border-outline-variant/20"
                       />
                       <div>

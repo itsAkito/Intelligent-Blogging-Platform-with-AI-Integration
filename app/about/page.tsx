@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Navbar from "@/components/NavBar";
 import Footer from "@/components/Footer";
 
@@ -67,7 +68,7 @@ export default function AboutPage() {
                 ].map((member) => (
                   <div key={member.name} className="glass-panel rounded-2xl p-6 text-center">
                     <div className="w-20 h-20 rounded-full mx-auto mb-4 overflow-hidden bg-surface-container-high">
-                      <img src={member.img} alt={member.name} className="w-full h-full object-cover" />
+                      <Image src={member.img} alt={member.name} width={80} height={80} className="w-full h-full object-cover" />
                     </div>
                     <h3 className="font-bold font-headline">{member.name}</h3>
                     <p className="text-xs text-primary uppercase tracking-wider mt-1">{member.role}</p>

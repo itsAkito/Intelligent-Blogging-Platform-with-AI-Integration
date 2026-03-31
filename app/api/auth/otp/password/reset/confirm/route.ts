@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { generateSalt, hashPassword, validatePasswordStrength } from '@/lib/password';
+import { generateSalt, hashPassword } from '@/lib/password';
 
 function hashToken(token: string) {
   return crypto.createHash('sha256').update(token).digest('hex');
@@ -13,11 +13,6 @@ export async function POST(request: NextRequest) {
 
     if (!token || !newPassword) {
       return NextResponse.json({ error: 'Token and newPassword are required' }, { status: 400 });
-    }
-
-    const passwordError = validatePasswordStrength(newPassword);
-    if (passwordError) {
-      return NextResponse.json({ error: passwordError }, { status: 400 });
     }
 
     const supabase = await createClient();

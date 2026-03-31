@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import Navbar from "@/components/NavBar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
@@ -1063,7 +1064,9 @@ export function example(input: string) {
             {/* Cover Image Preview */}
             {coverImageUrl && (
               <div className="relative mb-6 rounded-lg overflow-hidden group border border-white/10">
-                <img src={coverImageUrl} alt="Cover" className="w-full h-52 object-cover" />
+                <div className="relative w-full h-52">
+                  <Image src={coverImageUrl} alt="Cover" fill className="object-cover" sizes="100vw" />
+                </div>
                 <button
                   onClick={() => setCoverImageUrl("")}
                   className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1284,7 +1287,9 @@ export function example(input: string) {
                   )}
                   {coverImageUrl && (
                     <div className="rounded-lg overflow-hidden border border-outline-variant/20">
-                      <img src={coverImageUrl} alt="Cover preview" className="w-full h-32 object-cover" />
+                      <div className="relative w-full h-32">
+                        <Image src={coverImageUrl} alt="Cover preview" fill className="object-cover" sizes="400px" />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1355,11 +1360,15 @@ export function example(input: string) {
                 {/* Cover Image Preview */}
                 {coverImageUrl && (
                   <div className="rounded-lg overflow-hidden mb-6">
-                    <img
-                      src={coverImageUrl}
-                      alt={title}
-                      className="w-full h-40 object-cover"
-                    />
+                    <div className="relative w-full h-40">
+                      <Image
+                        src={coverImageUrl}
+                        alt={title}
+                        fill
+                        className="object-cover"
+                        sizes="100vw"
+                      />
+                    </div>
                   </div>
                 )}
 

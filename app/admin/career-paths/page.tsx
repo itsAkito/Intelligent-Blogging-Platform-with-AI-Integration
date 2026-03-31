@@ -17,8 +17,9 @@ export default function CareerPathsPage() {
   const [tracks, setTracks] = useState<any[]>([]);
 
   useEffect(() => {
+    if (loading) return;
     if (!user) {
-      router.push("/auth");
+      router.push("/admin/login");
       return;
     }
     if (user && !isAdmin) {

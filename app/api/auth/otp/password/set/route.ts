@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getAuthUserId } from '@/lib/auth-helpers';
-import { generateSalt, hashPassword, validatePasswordStrength } from '@/lib/password';
+import { generateSalt, hashPassword } from '@/lib/password';
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,11 +15,6 @@ export async function POST(request: NextRequest) {
     const { password } = await request.json();
     if (!password) {
       return NextResponse.json({ error: 'Password is required' }, { status: 400 });
-    }
-
-    const strengthError = validatePasswordStrength(password);
-    if (strengthError) {
-      return NextResponse.json({ error: strengthError }, { status: 400 });
     }
 
     const { data: profile, error: profileError } = await supabase

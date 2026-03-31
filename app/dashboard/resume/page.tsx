@@ -25,6 +25,7 @@ import {
   User,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import Navbar from "@/components/NavBar";
 import SideNavBar from "@/components/SideNavBar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -629,7 +630,7 @@ export default function ResumeBuilderPage() {
                         <label className="mb-1 block text-xs font-bold uppercase tracking-wider" style={{ color: P.outline }}>Profile Photo (optional)</label>
                         <div className="flex items-center gap-4">
                           {resumeData.photoUrl && (
-                            <img src={resumeData.photoUrl} alt="Profile" className="h-16 w-16 rounded-full object-cover border-2" style={{ borderColor: P.outlineVariant }} />
+                            <Image src={resumeData.photoUrl} alt="Profile" width={64} height={64} className="h-16 w-16 rounded-full object-cover border-2" style={{ borderColor: P.outlineVariant }} />
                           )}
                           <label className="cursor-pointer rounded-lg border px-4 py-2 text-sm font-medium hover:opacity-80 transition-opacity" style={{ borderColor: P.outlineVariant, color: P.primary }}>
                             {uploadingPhoto ? "Uploading..." : resumeData.photoUrl ? "Change Photo" : "Upload Photo"}
@@ -917,9 +918,11 @@ export default function ResumeBuilderPage() {
                       >
                         <div className="flex items-start gap-4">
                           {resumeData.photoUrl && (
-                            <img
+                            <Image
                               src={resumeData.photoUrl}
                               alt="Profile"
+                              width={64}
+                              height={64}
                               className="mt-1 h-16 w-16 shrink-0 rounded-full object-cover border-2"
                               style={{ borderColor: previewTheme.border }}
                             />

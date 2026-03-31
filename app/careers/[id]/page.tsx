@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
+import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/NavBar";
 import Footer from "@/components/Footer";
@@ -196,9 +197,11 @@ export default function JobDetailPage() {
               <div className="flex flex-col md:flex-row gap-6 items-start">
                 {/* Logo */}
                 {job.company_logo_url && (
-                  <img
+                  <Image
                     src={job.company_logo_url}
                     alt={job.company_name}
+                    width={80}
+                    height={80}
                     className="w-20 h-20 rounded-lg object-cover bg-surface"
                   />
                 )}

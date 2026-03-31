@@ -4,7 +4,7 @@ import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, code } = await request.json();
+    const { email, code, name: providedName } = await request.json();
 
     if (!email || !code) {
       return NextResponse.json({ error: 'Email and code are required' }, { status: 400 });
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     const role = 'user';
     const fallbackProfileId = `otp_${normalizedEmail.replace(/[^a-z0-9]/gi, '_')}`;
-    const userName = normalizedEmail.split('@')[0];
+    const userName = providedName?.trim() || normalizedEmail.split('@')[0];
 
     // Reuse existing profile by email when it already exists (e.g. Clerk-created rows).
     // This prevents unique email constraint violations when a profile for this email

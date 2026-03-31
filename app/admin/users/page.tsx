@@ -28,8 +28,9 @@ export default function UsersManagementPage() {
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   useEffect(() => {
+    if (loading) return;
     if (!user) {
-      router.push("/auth");
+      router.push("/admin/login");
       return;
     }
     if (user && !isAdmin) {

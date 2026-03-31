@@ -15,7 +15,6 @@ import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/NavBar";
 
 const Footer = dynamic(() => import("@/components/Footer"));
-const CookieBanner = dynamic(() => import("@/components/CookieBanner"), { ssr: false });
 
 interface FeaturedPost {
   id: string;
@@ -199,6 +198,10 @@ export default function Home() {
             <div className="absolute bottom-24 right-[14%] w-80 h-80 rounded-full bg-blue-500/14 blur-[110px]"></div>
             <div className="absolute top-10 right-[8%] w-60 h-60 rounded-full bg-violet-500/10 blur-[90px]"></div>
             <div className="absolute bottom-10 left-[8%] w-56 h-56 rounded-full bg-pink-500/08 blur-[90px]"></div>
+            {/* Subtle grid lines */}
+            <div className="absolute inset-0 opacity-[0.08]"
+              style={{ backgroundImage: "repeating-linear-gradient(0deg,transparent,transparent 48px,rgba(255,255,255,0.5) 48px,rgba(255,255,255,0.5) 49px),repeating-linear-gradient(90deg,transparent,transparent 48px,rgba(255,255,255,0.5) 48px,rgba(255,255,255,0.5) 49px)" }}
+            />
           </div>
 
           <div className="text-center max-w-4xl reveal-on-scroll">
@@ -719,7 +722,6 @@ export default function Home() {
         </section>
 
         <Footer />
-        <CookieBanner />
       </main>
     </>
   );

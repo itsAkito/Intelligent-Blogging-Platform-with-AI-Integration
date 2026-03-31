@@ -281,8 +281,8 @@ export default function InnovationPage() {
           <div className="absolute inset-0 bg-linear-to-br from-violet-950 via-[#0f0a1e] to-indigo-950" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(139,92,246,0.25),transparent_60%)]" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(59,130,246,0.2),transparent_60%)]" />
-          <div className="absolute inset-0 opacity-[0.04]"
-            style={{ backgroundImage: "repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(255,255,255,0.5) 40px,rgba(255,255,255,0.5) 41px),repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(255,255,255,0.5) 40px,rgba(255,255,255,0.5) 41px)" }}
+          <div className="absolute inset-0 opacity-[0.12]"
+            style={{ backgroundImage: "repeating-linear-gradient(0deg,transparent,transparent 40px,rgba(255,255,255,0.6) 40px,rgba(255,255,255,0.6) 41px),repeating-linear-gradient(90deg,transparent,transparent 40px,rgba(255,255,255,0.6) 40px,rgba(255,255,255,0.6) 41px)" }}
           />
 
           <div className="relative mx-auto max-w-7xl px-6 py-12">

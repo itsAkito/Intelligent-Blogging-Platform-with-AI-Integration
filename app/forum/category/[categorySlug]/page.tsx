@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
@@ -199,7 +200,7 @@ export default function CategoryPage() {
                       <div className="flex items-start gap-4">
                         <div className="w-9 h-9 rounded-full bg-linear-to-br from-primary to-secondary shrink-0 flex items-center justify-center text-white text-sm font-bold overflow-hidden">
                           {topic.author_avatar ? (
-                            <img src={topic.author_avatar} alt={topic.author_name} className="w-full h-full object-cover" />
+                            <Image src={topic.author_avatar} alt={topic.author_name} width={36} height={36} className="w-full h-full object-cover" />
                           ) : (
                             topic.author_name?.charAt(0)?.toUpperCase() || "U"
                           )}

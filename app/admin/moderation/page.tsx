@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 import AdminSideNav from "@/components/AdminSideNav";
 import AdminTopNav from "@/components/AdminTopNav";
 import { AiBadge } from "@/components/AiBadge";
@@ -364,9 +365,11 @@ export default function ModerationPage() {
                   </div>
 
                   <div className="flex items-center gap-3 mb-4">
-                    <img
+                    <Image
                       src={selectedPost.author_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedPost.author_id || selectedPost.author_name || 'author'}`}
                       alt="author"
+                      width={40}
+                      height={40}
                       className="w-10 h-10 rounded-full object-cover"
                     />
                     <div>
@@ -424,9 +427,11 @@ export default function ModerationPage() {
                 </div>
 
                 <div className="flex items-center gap-3 mb-4">
-                  <img
+                  <Image
                     src={selectedComment.author_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedComment.user_id || selectedComment.guest_name || 'guest'}`}
                     alt="comment-author"
+                    width={40}
+                    height={40}
                     className="w-10 h-10 rounded-full object-cover"
                   />
                   <div>

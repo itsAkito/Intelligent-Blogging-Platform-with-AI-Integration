@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useParams } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import Footer from "@/components/Footer";
@@ -259,7 +260,7 @@ export default function TopicPage() {
             <div className="flex items-center gap-3 mb-4">
               <div className="w-9 h-9 rounded-full bg-linear-to-br from-primary to-secondary flex items-center justify-center text-white text-sm font-bold overflow-hidden shrink-0">
                 {topic.author_avatar ? (
-                  <img src={topic.author_avatar} alt={topic.author_name} className="w-full h-full object-cover" />
+                  <Image src={topic.author_avatar} alt={topic.author_name} width={36} height={36} className="w-full h-full object-cover" />
                 ) : (
                   topic.author_name?.charAt(0)?.toUpperCase() || "U"
                 )}
@@ -341,7 +342,7 @@ export default function TopicPage() {
                     <div className="flex items-start gap-3">
                       <div className="w-8 h-8 rounded-full bg-linear-to-br from-primary/60 to-secondary/60 flex items-center justify-center text-white text-xs font-bold overflow-hidden shrink-0">
                         {reply.author_avatar ? (
-                          <img src={reply.author_avatar} alt={reply.author_name} className="w-full h-full object-cover" />
+                          <Image src={reply.author_avatar} alt={reply.author_name} width={32} height={32} className="w-full h-full object-cover" />
                         ) : (
                           reply.author_name?.charAt(0)?.toUpperCase() || "U"
                         )}

@@ -18,9 +18,13 @@ function AuthContent() {
   const nextParam = searchParams.get("next");
   const [showLogin, setShowLogin] = useState(true);
   const [authMethod, setAuthMethod] = useState<"clerk" | "otp">("clerk");
-  const [otpMode, setOtpMode] = useState<"otp" | "password">("otp");
-  const [otpStep, setOtpStep] = useState<"email" | "verify" | "setPassword" | "resetRequest" | "resetConfirm">("email");
+  // "login" = existing user email+password, "signup" = new user OTP flow
+  const [otpSection, setOtpSection] = useState<"login" | "signup">("login");
+  const [signupStep, setSignupStep] = useState<"email" | "verify" | "setPassword">("email");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetStep, setResetStep] = useState<"request" | "confirm">("request");
   const [otpEmail, setOtpEmail] = useState("");
+  const [otpName, setOtpName] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -36,11 +40,25 @@ function AuthContent() {
     setShowLogin(mode !== "signup");
   }, [mode]);
 
+  const switchOtpSection = (section: "login" | "signup") => {
+    setOtpSection(section);
+    setSignupStep("email");
+    setShowForgotPassword(false);
+    setResetStep("request");
+    setOtpEmail("");
+    setOtpName("");
+    setOtpCode("");
+    setPassword("");
+    setConfirmPassword("");
+    setResetToken("");
+    setDevOtp(null);
+    setDevResetToken(null);
+    setOtpError("");
+  };
+
   const sendOtp = async () => {
-    if (!otpEmail) {
-      setOtpError("Email is required");
-      return;
-    }
+    if (!otpName.trim()) { setOtpError("Name is required"); return; }
+    if (!otpEmail) { setOtpError("Email is required"); return; }
 
     try {
       setOtpLoading(true);
@@ -48,7 +66,7 @@ function AuthContent() {
       const response = await fetch("/api/auth/otp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: otpEmail }),
+        body: JSON.stringify({ email: otpEmail, name: otpName }),
       });
 
       const data = await response.json();
@@ -57,10 +75,7 @@ function AuthContent() {
       }
 
       setDevOtp(data.otp || null);
-      setOtpStep("verify");
-      if (!response.ok && data.error) {
-        setOtpError(`${data.error} Using development OTP fallback.`);
-      }
+      setSignupStep("verify");
     } catch (error) {
       setOtpError(error instanceof Error ? error.message : "Failed to send OTP");
     } finally {
@@ -80,7 +95,7 @@ function AuthContent() {
       const response = await fetch("/api/auth/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: otpEmail, code: otpCode }),
+        body: JSON.stringify({ email: otpEmail, code: otpCode, name: otpName }),
       });
 
       const data = await response.json();
@@ -89,7 +104,7 @@ function AuthContent() {
       }
 
       if (!data.passwordConfigured) {
-        setOtpStep("setPassword");
+        setSignupStep("setPassword");
         return;
       }
 
@@ -109,23 +124,6 @@ function AuthContent() {
     }
     if (password !== confirmPassword) {
       setOtpError("Passwords do not match.");
-      return;
-    }
-    // Client-side password strength check so the user gets instant feedback
-    if (password.length < 8) {
-      setOtpError("Password must be at least 8 characters.");
-      return;
-    }
-    if (!/[A-Z]/.test(password)) {
-      setOtpError("Password must contain at least one uppercase letter.");
-      return;
-    }
-    if (!/[a-z]/.test(password)) {
-      setOtpError("Password must contain at least one lowercase letter.");
-      return;
-    }
-    if (!/[0-9]/.test(password)) {
-      setOtpError("Password must contain at least one number.");
       return;
     }
 
@@ -151,12 +149,6 @@ function AuthContent() {
     } finally {
       setOtpLoading(false);
     }
-  };
-
-  const skipPasswordSetup = () => {
-    // Allow user to skip and go directly to the app — they can set password later from settings
-    router.push(nextPath || "/");
-    router.refresh();
   };
 
   const loginWithPassword = async () => {
@@ -210,7 +202,7 @@ function AuthContent() {
       }
 
       setDevResetToken(data.resetToken || null);
-      setOtpStep("resetConfirm");
+      setResetStep("confirm");
     } catch (error) {
       setOtpError(error instanceof Error ? error.message : "Failed to request reset");
     } finally {
@@ -243,12 +235,12 @@ function AuthContent() {
         throw new Error(data.error || "Password reset failed");
       }
 
-      setOtpStep("email");
-      setOtpMode("password");
+      setShowForgotPassword(false);
+      setResetStep("request");
       setResetToken("");
       setDevResetToken(null);
       setConfirmPassword("");
-      setOtpError("Password reset successful. You can now login with password.");
+      setOtpError("Password reset successful. You can now login with your new password.");
     } catch (error) {
       setOtpError(error instanceof Error ? error.message : "Password reset failed");
     } finally {
@@ -314,7 +306,7 @@ function AuthContent() {
               className="rounded-full px-5"
               size="sm"
             >
-              Email OTP
+              Email Login
             </Button>
           </div>
 
@@ -368,197 +360,244 @@ function AuthContent() {
           ) : (
             <Card className="w-full bg-surface-container-low border-outline-variant/20">
               <CardContent className="p-6 space-y-4">
+
+                {/* Header */}
                 <div className="text-center">
-                  <h3 className="text-lg font-bold">User Email Login</h3>
+                  <h3 className="text-lg font-bold">
+                    {otpSection === "signup" ? "Create Account" : "Login"}
+                  </h3>
                   <p className="text-xs text-on-surface-variant mt-1">
-                    {otpMode === "otp" ? "Use one-time code sign-in" : "Use saved password sign-in"}
+                    {otpSection === "signup"
+                      ? "Sign up with name, email and OTP verification"
+                      : "Sign in with your email and password"}
                   </p>
                 </div>
 
+                {/* Login / Create Account tabs */}
                 <div className="flex gap-2">
                   <Button
                     type="button"
-                    variant={otpMode === "otp" ? "default" : "outline"}
+                    variant={otpSection === "login" ? "default" : "outline"}
                     className="flex-1"
-                    onClick={() => {
-                      setOtpMode("otp");
-                      setOtpStep("email");
-                      setOtpError("");
-                    }}
+                    onClick={() => switchOtpSection("login")}
                   >
-                    OTP Login
+                    Login
                   </Button>
                   <Button
                     type="button"
-                    variant={otpMode === "password" ? "default" : "outline"}
+                    variant={otpSection === "signup" ? "default" : "outline"}
                     className="flex-1"
-                    onClick={() => {
-                      setOtpMode("password");
-                      setOtpStep("email");
-                      setOtpError("");
-                    }}
+                    onClick={() => switchOtpSection("signup")}
                   >
-                    Password Login
+                    Create Account
                   </Button>
                 </div>
 
+                {/* Error */}
                 {otpError && (
                   <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-300 text-xs">
                     {otpError}
                   </div>
                 )}
 
-                <div className="space-y-3">
-                  <Input
-                    type="email"
-                    value={otpEmail}
-                    onChange={(e) => setOtpEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    disabled={otpMode === "otp" && otpStep === "verify"}
-                  />
+                {/* ── SIGNUP FLOW ── */}
+                {otpSection === "signup" && (
+                  <div className="space-y-3">
+                    {signupStep === "email" && (
+                      <>
+                        <Input
+                          type="text"
+                          value={otpName}
+                          onChange={(e) => setOtpName(e.target.value)}
+                          placeholder="Your full name"
+                        />
+                        <Input
+                          type="email"
+                          value={otpEmail}
+                          onChange={(e) => setOtpEmail(e.target.value)}
+                          placeholder="Enter your email"
+                        />
+                        <Button onClick={sendOtp} disabled={otpLoading} className="w-full">
+                          {otpLoading ? "Sending OTP..." : "Send OTP"}
+                        </Button>
+                        <p className="text-center text-xs text-on-surface-variant">
+                          Already have an account?{" "}
+                          <button
+                            type="button"
+                            className="text-primary hover:underline"
+                            onClick={() => switchOtpSection("login")}
+                          >
+                            Login here
+                          </button>
+                        </p>
+                      </>
+                    )}
 
-                  {otpMode === "otp" && otpStep === "verify" && (
+                    {signupStep === "verify" && (
+                      <>
+                        <p className="text-xs text-on-surface-variant text-center">
+                          OTP sent to <span className="text-on-surface font-medium">{otpEmail}</span>
+                        </p>
+                        <Input
+                          type="text"
+                          value={otpCode}
+                          onChange={(e) => setOtpCode(e.target.value)}
+                          placeholder="Enter 6-digit OTP from your email"
+                          maxLength={6}
+                        />
+                        {devOtp && (
+                          <p className="text-[11px] text-yellow-300">Dev OTP: {devOtp}</p>
+                        )}
+                        <div className="flex gap-2">
+                          <Button onClick={verifyOtp} disabled={otpLoading} className="flex-1">
+                            {otpLoading ? "Verifying..." : "Verify OTP"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => { setSignupStep("email"); setOtpCode(""); setDevOtp(null); setOtpError(""); }}
+                            disabled={otpLoading}
+                          >
+                            ← Back
+                          </Button>
+                        </div>
+                      </>
+                    )}
+
+                    {signupStep === "setPassword" && (
+                      <>
+                        <p className="text-xs text-on-surface-variant text-center">
+                          OTP verified! Set a password to complete your account.
+                        </p>
+                        <Input
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Create a password"
+                        />
+                        <Input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm password"
+                        />
+                        <Button onClick={setOtpPassword} disabled={otpLoading} className="w-full">
+                          {otpLoading ? "Creating account..." : "Create Account"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* ── LOGIN FLOW ── */}
+                {otpSection === "login" && !showForgotPassword && (
+                  <div className="space-y-3">
                     <Input
-                      type="text"
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      placeholder="Enter 6-digit OTP"
-                      maxLength={6}
+                      type="email"
+                      value={otpEmail}
+                      onChange={(e) => setOtpEmail(e.target.value)}
+                      placeholder="Enter your email"
                     />
-                  )}
-
-                  {otpMode === "password" && otpStep !== "resetConfirm" && (
                     <Input
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter your password"
                     />
-                  )}
-
-                  {(otpStep === "setPassword" || otpStep === "resetConfirm") && (
-                    <>
-                      <p className="text-[11px] text-on-surface-variant bg-surface-container-high rounded-lg px-3 py-2 leading-relaxed">
-                        Password must be <strong className="text-on-surface">8+ characters</strong>, include an{" "}
-                        <strong className="text-on-surface">uppercase letter</strong>,{" "}
-                        <strong className="text-on-surface">lowercase letter</strong>, and a{" "}
-                        <strong className="text-on-surface">number</strong>.
-                      </p>
-                      <Input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Create password  (e.g. MyPass123)"
-                      />
-                      <Input
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Confirm password"
-                      />
-                    </>
-                  )}
-
-                  {otpStep === "resetConfirm" && (
-                    <Input
-                      type="text"
-                      value={resetToken}
-                      onChange={(e) => setResetToken(e.target.value)}
-                      placeholder="Enter reset token"
-                    />
-                  )}
-
-                  {devOtp && (
-                    <p className="text-[11px] text-yellow-300">Dev OTP: {devOtp}</p>
-                  )}
-
-                  {otpMode === "otp" && otpStep === "email" ? (
-                    <Button onClick={sendOtp} disabled={otpLoading} className="w-full">
-                      {otpLoading ? "Sending..." : "Send OTP"}
+                    <Button onClick={loginWithPassword} disabled={otpLoading} className="w-full">
+                      {otpLoading ? "Signing in..." : "Login"}
                     </Button>
-                  ) : otpMode === "otp" && otpStep === "verify" ? (
-                    <div className="flex gap-2">
-                      <Button onClick={verifyOtp} disabled={otpLoading} className="flex-1">
-                        {otpLoading ? "Verifying..." : "Verify OTP"}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setOtpStep("email");
-                          setOtpCode("");
-                          setDevOtp(null);
-                          setOtpError("");
-                        }}
-                        disabled={otpLoading}
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  ) : otpStep === "setPassword" ? (
-                    <div className="space-y-2">
-                      <Button onClick={setOtpPassword} disabled={otpLoading} className="w-full">
-                        {otpLoading ? "Saving..." : "Set Password & Continue"}
-                      </Button>
-                      <Button
+                    <div className="flex items-center justify-between text-xs">
+                      <button
                         type="button"
-                        variant="ghost"
-                        className="w-full text-xs text-on-surface-variant"
-                        onClick={skipPasswordSetup}
-                        disabled={otpLoading}
-                      >
-                        Skip for now — I&apos;ll set a password later
-                      </Button>
-                    </div>
-                  ) : otpMode === "password" && otpStep === "email" ? (
-                    <div className="space-y-2">
-                      <Button onClick={loginWithPassword} disabled={otpLoading} className="w-full">
-                        {otpLoading ? "Signing in..." : "Login with Password"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="link"
-                        className="w-full text-xs"
-                        onClick={() => {
-                          setOtpStep("resetRequest");
-                          setOtpError("");
-                        }}
+                        className="text-primary hover:underline"
+                        onClick={() => { setShowForgotPassword(true); setOtpError(""); }}
                       >
                         Forgot password?
-                      </Button>
+                      </button>
+                      <button
+                        type="button"
+                        className="text-on-surface-variant hover:text-primary hover:underline"
+                        onClick={() => switchOtpSection("signup")}
+                      >
+                        Create account
+                      </button>
                     </div>
-                  ) : otpStep === "resetRequest" ? (
-                    <div className="space-y-2">
-                      <Button onClick={requestPasswordReset} disabled={otpLoading} className="w-full">
-                        {otpLoading ? "Requesting..." : "Request Password Reset"}
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => setOtpStep("email")} className="w-full">
-                        Back
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Button onClick={confirmPasswordReset} disabled={otpLoading} className="w-full">
-                        {otpLoading ? "Resetting..." : "Confirm Reset"}
-                      </Button>
-                      <Button type="button" variant="outline" onClick={() => setOtpStep("email")} className="w-full">
-                        Back to Login
-                      </Button>
-                    </div>
-                  )}
+                  </div>
+                )}
 
-                  {devResetToken && (
-                    <p className="text-[11px] text-emerald-300">Dev reset token: {devResetToken}</p>
-                  )}
-                </div>
+                {/* ── FORGOT PASSWORD FLOW ── */}
+                {otpSection === "login" && showForgotPassword && (
+                  <div className="space-y-3">
+                    <p className="text-xs text-on-surface-variant text-center">
+                      {resetStep === "request"
+                        ? "Enter your email to receive a password reset token."
+                        : "Enter the reset token from your email and your new password."}
+                    </p>
+
+                    {resetStep === "request" && (
+                      <>
+                        <Input
+                          type="email"
+                          value={otpEmail}
+                          onChange={(e) => setOtpEmail(e.target.value)}
+                          placeholder="Enter your email"
+                        />
+                        <Button onClick={requestPasswordReset} disabled={otpLoading} className="w-full">
+                          {otpLoading ? "Sending..." : "Send Reset Token"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => { setShowForgotPassword(false); setOtpError(""); }}
+                        >
+                          ← Back to Login
+                        </Button>
+                      </>
+                    )}
+
+                    {resetStep === "confirm" && (
+                      <>
+                        <Input
+                          type="text"
+                          value={resetToken}
+                          onChange={(e) => setResetToken(e.target.value)}
+                          placeholder="Enter reset token from email"
+                        />
+                        <Input
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="New password"
+                        />
+                        <Input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="Confirm new password"
+                        />
+                        {devResetToken && (
+                          <p className="text-[11px] text-emerald-300">Dev reset token: {devResetToken}</p>
+                        )}
+                        <Button onClick={confirmPasswordReset} disabled={otpLoading} className="w-full">
+                          {otpLoading ? "Resetting..." : "Reset Password"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => { setResetStep("request"); setOtpError(""); }}
+                        >
+                          ← Back
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+
               </CardContent>
             </Card>
           )}
-
-          <p className="mt-6 text-center text-xs text-on-surface-variant">
-            By continuing, you agree to our{" "}
-            <Link href="/privacy" className="text-primary hover:underline">Terms</Link> and{" "}
-            <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
-          </p>
 
           <div className="mt-8 text-center text-sm text-on-surface-variant">
             <p>Admin?{" "}

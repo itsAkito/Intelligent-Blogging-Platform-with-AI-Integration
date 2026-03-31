@@ -29,11 +29,23 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
   }
 
   if (isProtectedRoute(req)) {
-    const { userId } = await auth();
     const otpSessionToken = req.cookies.get("otp_session_token")?.value;
     const adminSessionToken = req.cookies.get("admin_session_token")?.value;
-    let isAuthenticated = !!userId;
-    
+
+    // Admin cookie: grant access to all admin routes immediately — skip Clerk auth entirely
+    // to prevent Clerk from ever triggering /auth/out or sign-out redirects for admin sessions.
+    if (adminSessionToken && isAdminRoute(req)) {
+      return NextResponse.next();
+    }
+
+    // OTP session: grant access immediately for non-admin protected routes
+    if (otpSessionToken && !isAdminRoute(req)) {
+      return NextResponse.next();
+    }
+
+    // For Clerk-based users, check Clerk auth state
+    const { userId } = await auth();
+
     if (!userId && !otpSessionToken && !adminSessionToken) {
       if (isAdminRoute(req)) {
         return NextResponse.redirect(new URL("/admin/login", req.url));
@@ -44,15 +56,12 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
       return NextResponse.redirect(authUrl);
     }
 
-    // Check user role for admin routes
+    // Check user role for admin routes (Clerk users only at this point)
     let userRole = "user";
-    const hasAdminCookieForAdminRoute = !!adminSessionToken && isAdminRoute(req);
+    let isAuthenticated = !!userId;
 
     try {
-      if (hasAdminCookieForAdminRoute) {
-        userRole = "admin";
-        isAuthenticated = true;
-      } else if (userId) {
+      if (userId) {
         const response = await fetch(new URL("/api/user/profile", req.url), {
           headers: {
             cookie: req.headers.get("cookie") || "",
@@ -65,25 +74,6 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
           userRole = resolvedProfile?.role || "user";
           isAuthenticated = true;
         }
-      } else if (otpSessionToken) {
-        // For OTP sessions, validate token and resolve role from server session
-        try {
-          const sessionRes = await fetch(new URL("/api/auth/otp/session", req.url), {
-            headers: {
-              cookie: req.headers.get("cookie") || `otp_session_token=${otpSessionToken}`,
-            },
-          });
-          if (sessionRes.ok) {
-            const sessionData = await sessionRes.json();
-            userRole = sessionData.user?.role || "user";
-            isAuthenticated = true;
-          } else {
-            isAuthenticated = false;
-          }
-        } catch {
-          isAuthenticated = false;
-          userRole = "user";
-        }
       }
 
       if (!isAuthenticated) {
@@ -95,15 +85,11 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
         return NextResponse.redirect(authUrl);
       }
 
-      // Role-based route protection
-      if (isAdminRoute(req)) {
-        if (userRole !== "admin") {
-          // Non-admin users hitting admin routes should be sent to admin login.
-          return NextResponse.redirect(new URL("/admin/login", req.url));
-        }
+      // Role-based route protection: Clerk users trying to access admin routes
+      if (isAdminRoute(req) && userRole !== "admin") {
+        return NextResponse.redirect(new URL("/admin/login", req.url));
       }
     } catch (error) {
-      // Continue normally if profile check fails, but be strict with admin routes
       console.error("Profile check failed:", error);
       if (isAdminRoute(req)) {
         return NextResponse.redirect(new URL("/admin/login", req.url));

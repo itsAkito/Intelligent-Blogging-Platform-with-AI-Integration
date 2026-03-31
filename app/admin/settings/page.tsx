@@ -11,8 +11,9 @@ export default function AdminSettingsPage() {
   const router = useRouter();
 
   useEffect(() => {
+    if (loading) return;
     if (!user) {
-      router.push("/auth");
+      router.push("/admin/login");
       return;
     }
     if (user && !isAdmin) {
