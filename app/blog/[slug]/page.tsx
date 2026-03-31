@@ -9,7 +9,7 @@ import Footer from "@/components/Footer";
 import { useAuth } from "@/context/AuthContext";
 import { renderMarkdownBlocks } from "@/lib/markdown";
 import { emitLikeUpdate, subscribeLikeUpdates } from "@/lib/like-sync";
-import { getThemeById } from "@/lib/blog-themes";
+import { BlogTheme, getThemeById, getThemeFromAny, isBuiltinTheme } from "@/lib/blog-themes";
 
 interface Post {
   id: string;
@@ -60,6 +60,7 @@ export default function BlogPostPage() {
   const [liked, setLiked] = useState(false);
   const [likers, setLikers] = useState<LikerProfile[]>([]);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const [resolvedTheme, setResolvedTheme] = useState<BlogTheme | null>(null);
 
   // Reviews state
   const [reviews, setReviews] = useState<Array<{
@@ -136,6 +137,41 @@ export default function BlogPostPage() {
 
     return unsubscribe;
   }, [post]);
+
+  useEffect(() => {
+    const themeId = post?.blog_theme;
+    if (!themeId) {
+      setResolvedTheme(getThemeById("default"));
+      return;
+    }
+
+    if (isBuiltinTheme(themeId)) {
+      setResolvedTheme(getThemeById(themeId));
+      return;
+    }
+
+    let active = true;
+    const loadTheme = async () => {
+      try {
+        const response = await fetch(`/api/blog-themes/${encodeURIComponent(themeId)}`);
+        if (!response.ok) {
+          if (active) setResolvedTheme(getThemeById("default"));
+          return;
+        }
+        const data = await response.json();
+        if (active) {
+          setResolvedTheme(getThemeFromAny(data.theme));
+        }
+      } catch {
+        if (active) setResolvedTheme(getThemeById("default"));
+      }
+    };
+
+    loadTheme();
+    return () => {
+      active = false;
+    };
+  }, [post?.blog_theme]);
 
   const handleLike = async () => {
     if (!post) return;
@@ -374,7 +410,7 @@ export default function BlogPostPage() {
     );
   }
 
-  const theme = getThemeById(post.blog_theme || "default");
+  const theme = resolvedTheme || getThemeById(post.blog_theme || "default");
 
   return (
     <>
@@ -461,7 +497,7 @@ export default function BlogPostPage() {
 
           {/* Themed Content */}
           <div className={`mt-10 ${theme.proseClass} max-w-none ${theme.textClass} leading-relaxed`}>
-            {renderMarkdownBlocks(post.content)}
+            {renderMarkdownBlocks(post.content, theme)}
           </div>
 
           {/* Comments Section */}

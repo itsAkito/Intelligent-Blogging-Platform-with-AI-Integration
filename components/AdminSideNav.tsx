@@ -10,6 +10,7 @@ export default function AdminSideNav({ activePage = "overview" }: AdminSideNavPr
   const navItems = [
     { id: "overview", label: "System Overview", icon: "dashboard", href: "/admin" },
     { id: "posts", label: "Blog CMS", icon: "article", href: "/admin/posts" },
+    { id: "themes", label: "Theme Library", icon: "palette", href: "/admin/themes" },
     { id: "users", label: "User Management", icon: "group", href: "/admin/users" },
     { id: "moderation", label: "Content Moderation", icon: "fact_check", href: "/admin/moderation" },
     { id: "career-paths", label: "Career Path Config", icon: "alt_route", href: "/admin/career-paths" },

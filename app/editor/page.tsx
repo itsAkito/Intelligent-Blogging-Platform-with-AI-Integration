@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { renderMarkdownBlocks } from "@/lib/markdown";
-import { BLOG_THEMES, getThemeById } from "@/lib/blog-themes";
+import { BLOG_THEMES, BlogTheme, getThemeById, getThemeFromAny } from "@/lib/blog-themes";
 
 type Collaborator = {
   id: string;
@@ -61,6 +61,7 @@ function EditorContent() {
   const [showSlashCommand, setShowSlashCommand] = useState(false);
   const [slashCommandPosition, setSlashCommandPosition] = useState({ top: 0, left: 0 });
   const [blogTheme, setBlogTheme] = useState("default");
+  const [availableThemes, setAvailableThemes] = useState<BlogTheme[]>(BLOG_THEMES);
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [showCollaboratorBlock, setShowCollaboratorBlock] = useState(searchParams.get("collab") === "1");
   const [postAuthorId, setPostAuthorId] = useState<string | null>(null);
@@ -395,11 +396,33 @@ export function example(input: string) {
   }, [loadPost]);
 
   useEffect(() => {
+    let active = true;
+    const loadThemes = async () => {
+      try {
+        const response = await fetch("/api/blog-themes?includeBuiltin=true", { credentials: "include" });
+        if (!response.ok) return;
+        const data = await response.json();
+        const themes = Array.isArray(data.themes) ? data.themes.map((theme: any) => getThemeFromAny(theme)) : BLOG_THEMES;
+        if (active && themes.length > 0) {
+          setAvailableThemes(themes);
+        }
+      } catch {
+        // Keep built-ins when API is unavailable.
+      }
+    };
+
+    loadThemes();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!themeParam || isEditing) return;
-    if (BLOG_THEMES.some((theme) => theme.id === themeParam)) {
+    if (availableThemes.some((theme) => theme.id === themeParam)) {
       setBlogTheme(themeParam);
     }
-  }, [themeParam, isEditing]);
+  }, [themeParam, isEditing, availableThemes]);
 
   const loadCollaborators = useCallback(async () => {
     if (!editId) {
@@ -449,7 +472,7 @@ export function example(input: string) {
 
   const wordCount = content.split(/\s+/).filter((w) => w.length > 0).length;
   const readTime = Math.max(1, Math.ceil(wordCount / 200));
-  const selectedTheme = getThemeById(blogTheme);
+  const selectedTheme = availableThemes.find((theme) => theme.id === blogTheme) || getThemeById(blogTheme);
   const isPostOwner = !!(user?.id && postAuthorId && user.id === postAuthorId);
 
   const handleGenerateWithAI = async () => {
@@ -837,7 +860,7 @@ export function example(input: string) {
                 <PopoverContent className="w-72 bg-[#23282d] border-white/15 p-3" align="end">
                   <p className="text-xs font-bold text-zinc-300 mb-2">Choose Blog Theme</p>
                   <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto">
-                    {BLOG_THEMES.map((theme) => (
+                    {availableThemes.map((theme) => (
                       <button
                         key={theme.id}
                         onClick={() => { setBlogTheme(theme.id); setShowThemePicker(false); }}
@@ -1335,7 +1358,7 @@ export function example(input: string) {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Blog Theme</span>
                 <p className="text-[10px] text-on-surface-variant mt-1 mb-3">Choose a visual style for your published post</p>
                 <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
-                  {BLOG_THEMES.map((theme) => (
+                  {availableThemes.map((theme) => (
                     <button
                       key={theme.id}
                       onClick={() => setBlogTheme(theme.id)}
@@ -1552,7 +1575,7 @@ export function example(input: string) {
 
                 {/* Rendered Markdown Content */}
                 <div className={`${selectedTheme.textClass} leading-relaxed space-y-4`}>
-                  {renderMarkdownBlocks(content)}
+                  {renderMarkdownBlocks(content, selectedTheme)}
                 </div>
               </div>
             </div>

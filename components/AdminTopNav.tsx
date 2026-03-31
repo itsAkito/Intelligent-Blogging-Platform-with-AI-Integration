@@ -105,6 +105,9 @@ export default function AdminTopNav({ activePage = "overview" }: AdminTopNavProp
           <Link href="/admin/posts" className={activePage === "posts" ? "text-blue-400 font-bold" : "text-zinc-500 hover:text-blue-300 transition-colors"}>
             CMS
           </Link>
+          <Link href="/admin/themes" className={activePage === "themes" ? "text-blue-400 font-bold" : "text-zinc-500 hover:text-blue-300 transition-colors"}>
+            Themes
+          </Link>
           <Link href="/admin/analytics" className={activePage === "analytics" ? "text-blue-400 font-bold" : "text-zinc-500 hover:text-blue-300 transition-colors"}>
             Insights
           </Link>

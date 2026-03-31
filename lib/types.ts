@@ -19,6 +19,7 @@ export interface BlogPost {
   content: string;
   excerpt?: string;
   cover_image_url?: string;
+  blog_theme?: string;
   slug: string;
   status: 'draft' | 'published' | 'archived';
   ai_generated: boolean;
@@ -75,4 +76,16 @@ export interface AdminSettings {
   value: string | number | boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface UserBlogTheme {
+  id: string;
+  name: string;
+  description?: string;
+  preview_icon?: string;
+  created_by?: string;
+  is_public?: boolean;
+  is_featured?: boolean;
+  status?: 'active' | 'archived';
+  theme_config?: unknown;
 }
