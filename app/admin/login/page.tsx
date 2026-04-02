@@ -46,7 +46,7 @@ export default function AdminLoginPage() {
       }
 
       const nextPath = searchParams.get("next");
-      const target = nextPath && nextPath.startsWith("/admin") ? nextPath : "/";
+      const target = nextPath && nextPath.startsWith("/admin") ? nextPath : "/admin";
 
       router.push(target);
       router.refresh();

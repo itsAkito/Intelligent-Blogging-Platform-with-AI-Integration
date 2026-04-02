@@ -32,9 +32,20 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     const otpSessionToken = req.cookies.get("otp_session_token")?.value;
     const adminSessionToken = req.cookies.get("admin_session_token")?.value;
 
-    // Admin cookie: grant access to all admin routes immediately — skip Clerk auth entirely
-    // to prevent Clerk from ever triggering /auth/out or sign-out redirects for admin sessions.
-    if (adminSessionToken && isAdminRoute(req)) {
+    // Admin cookie: grant access to admin routes only — block non-admin routes.
+    // This prevents admin-only sessions from accessing /dashboard, /editor, etc.
+    if (adminSessionToken && !otpSessionToken) {
+      if (isAdminRoute(req)) {
+        return NextResponse.next();
+      }
+      // Admin cookie holder trying to access a non-admin protected route without Clerk/OTP auth
+      const { userId } = await auth();
+      if (!userId) {
+        // Not a Clerk user — redirect to admin panel
+        return NextResponse.redirect(new URL("/admin", req.url));
+      }
+      // If they also have a Clerk session, let them through (dual auth)
+    } else if (adminSessionToken && isAdminRoute(req)) {
       return NextResponse.next();
     }
 

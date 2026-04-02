@@ -24,6 +24,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isAdminOnly: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -171,6 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [isLoaded, isSignedIn, clerkUser, syncUserToSupabase, loadOtpUser, isAuthRoute]);
 
   const isAuthenticated = !!isSignedIn || !!profile;
+  const isAdminOnly = !isSignedIn && !!profile && profile.id === "admin-session" && role === "admin";
 
   const signOut = async () => {
     // Clear local state immediately so UI responds at once
@@ -214,6 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout: signOut,
         isAuthenticated,
         isAdmin: role === "admin",
+        isAdminOnly,
       }}
     >
       {children}

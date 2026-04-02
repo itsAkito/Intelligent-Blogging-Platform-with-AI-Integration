@@ -30,7 +30,7 @@ const EXPLORE_LINKS = [
 
 export default function Navbar() {
   const router = useRouter();
-  const { isAdmin, isAuthenticated, profile, user, signOut } = useAuth();
+  const { isAdmin, isAdminOnly, isAuthenticated, profile, user, signOut } = useAuth();
   const { user: clerkUser } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
   const [exploreOpen, setExploreOpen] = useState(false);
@@ -59,7 +59,7 @@ export default function Navbar() {
   }, [router]);
 
   // OTP session user is represented by profile without an active Clerk user object.
-  const isOtpUser = mounted && isAuthenticated && !!profile && !clerkUser;
+  const isOtpUser = mounted && isAuthenticated && !!profile && !clerkUser && !isAdminOnly;
   const isClerkUser = mounted && isAuthenticated && !!clerkUser;
 
   const displayName =
@@ -120,7 +120,7 @@ export default function Navbar() {
                 </DropdownMenu>
               </div>
 
-              {mounted && isAuthenticated && (
+              {mounted && isAuthenticated && !isAdminOnly && (
                 <Link
                   href="/dashboard"
                   className="text-zinc-400 hover:text-primary transition-all font-medium rounded-full px-3 py-1.5 hover:bg-white/5 flex items-center gap-1.5"
@@ -134,7 +134,7 @@ export default function Navbar() {
           <div className="flex items-center gap-4">
             {mounted && isAuthenticated ? (
               <>
-                <NotificationsDropdown />
+                {!isAdminOnly && <NotificationsDropdown />}
                 
                 {isAdmin && (
                   <Link href="/admin" className="hidden sm:block text-sm font-semibold text-zinc-400 hover:text-white transition-colors">
@@ -206,9 +206,11 @@ export default function Navbar() {
                   </div>
                 )}
                 
-                <Button asChild className="px-5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
-                  <Link href="/editor">Create Post</Link>
-                </Button>
+                {!isAdminOnly && (
+                  <Button asChild className="px-5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
+                    <Link href="/editor">Create Post</Link>
+                  </Button>
+                )}
               </>
             ) : mounted ? (
               <>
