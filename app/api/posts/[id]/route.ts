@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
 import { getAuthUserId } from '@/lib/auth-helpers';
 import { logActivity } from '@/lib/activity-log';
 
@@ -16,17 +15,6 @@ function isMissingBlogThemeColumn(error: unknown): boolean {
   const message = typeof error === 'object' && error !== null ? (error as { message?: string }).message : undefined;
   if (code !== 'PGRST204' && code !== '42703') return false;
   return typeof message === 'string' && message.toLowerCase().includes('blog_theme');
-}
-
-async function tryReadJsonBody(request: NextRequest): Promise<Record<string, any>> {
-  const contentLength = request.headers.get('content-length');
-  if (contentLength === '0') return {};
-
-  try {
-    return await request.json();
-  } catch {
-    return {};
-  }
 }
 
 export async function GET(
@@ -65,30 +53,56 @@ export async function GET(
 
     const currentUserId = await getAuthUserId(request);
 
-    const [{ count: likesCount }, { count: commentsCount }, likedRow] = await Promise.all([
-      supabase
+    // Try post_likes first, fall back to likes table
+    let likesCount = 0;
+    let likedByCurrentUser = false;
+
+    const likesResult = await supabase
+      .from('post_likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', data.id);
+
+    if (likesResult.error) {
+      const fallbackResult = await supabase
+        .from('likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('post_id', data.id);
+      likesCount = fallbackResult.count || 0;
+    } else {
+      likesCount = likesResult.count || 0;
+    }
+
+    const { count: commentsCount } = await supabase
+      .from('comments')
+      .select('*', { count: 'exact', head: true })
+      .eq('post_id', data.id);
+
+    if (currentUserId) {
+      const likeCheck = await supabase
         .from('post_likes')
-        .select('*', { count: 'exact', head: true })
-        .eq('post_id', data.id),
-      supabase
-        .from('comments')
-        .select('*', { count: 'exact', head: true })
-        .eq('post_id', data.id),
-      currentUserId
-        ? supabase
-            .from('post_likes')
-            .select('id')
-            .eq('post_id', data.id)
-            .eq('user_id', currentUserId)
-            .maybeSingle()
-        : Promise.resolve({ data: null } as any),
-    ]);
+        .select('id')
+        .eq('post_id', data.id)
+        .eq('user_id', currentUserId)
+        .maybeSingle();
+
+      if (likeCheck.error) {
+        const fallbackCheck = await supabase
+          .from('likes')
+          .select('id')
+          .eq('post_id', data.id)
+          .eq('user_id', currentUserId)
+          .maybeSingle();
+        likedByCurrentUser = !!fallbackCheck.data;
+      } else {
+        likedByCurrentUser = !!likeCheck.data;
+      }
+    }
 
     const postWithLiveCounts = {
       ...data,
-      likes_count: likesCount || 0,
+      likes_count: likesCount,
       comments_count: commentsCount || 0,
-      liked_by_current_user: !!likedRow?.data,
+      liked_by_current_user: likedByCurrentUser,
     };
 
     return NextResponse.json(postWithLiveCounts);
@@ -105,20 +119,7 @@ export async function PUT(
   const { id } = await params;
   try {
     const body = await _request.json();
-    let userId = body.userId;
-    
-    const clerkAuth = await auth();
-    if (clerkAuth.userId) {
-      userId = clerkAuth.userId;
-    } else {
-      const otpSession = _request.cookies.get("otp_session");
-      if (!otpSession?.value && !userId) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized - userId required' }, { status: 401 });
-      }
-    }
+    const userId = await getAuthUserId(_request);
     
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -221,8 +222,7 @@ export async function DELETE(
 ) {
   const { id } = await params;
   try {
-    const body = await tryReadJsonBody(_request);
-    let userId = body.userId || (await getAuthUserId(_request));
+    const userId = await getAuthUserId(_request);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

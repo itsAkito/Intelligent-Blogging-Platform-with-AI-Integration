@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { renderMarkdownBlocks } from "@/lib/markdown";
 import { BLOG_THEMES, BlogTheme, getThemeById, getThemeFromAny } from "@/lib/blog-themes";
+import { WRITING_TEMPLATES, getPrimaryToolbarButtons, getSecondaryToolbarButtons, getSlashCommands } from "./editor-config";
 
 type Collaborator = {
   id: string;
@@ -37,7 +38,7 @@ function EditorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
-  const themeParam = searchParams.get("theme");
+  const themeParam = searchParams.get("theme") || searchParams.get("templateTheme");
   const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -71,135 +72,11 @@ function EditorContent() {
   const [invitePermission, setInvitePermission] = useState<"editor" | "viewer">("editor");
   const [collabLoading, setCollabLoading] = useState(false);
   const [collabFeedback, setCollabFeedback] = useState("");
+  const [themeNotification, setThemeNotification] = useState("");
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
-  const writingTemplates = [
-    {
-      id: "blog-post",
-      label: "Blog Post",
-      category: "Technology",
-      title: "How to Solve [Problem] with [Approach]",
-      excerpt: "A practical breakdown of the challenge, the strategy, and key outcomes.",
-      topic: "Technical Writing",
-      content: `## Introduction
-
-Write one short paragraph framing the reader's pain point and why this topic matters now.
-
-## The Core Problem
-
-- Context and constraints
-- Why common approaches fail
-- What success looks like
-
-## Solution Breakdown
-
-### 1. Set Up
-
-Explain the required setup and assumptions.
-
-### 2. Implementation
-
-Walk through the key implementation steps with concrete examples.
-
-### 3. Validation
-
-Show how you tested and validated results.
-
-## Key Takeaways
-
-- Takeaway 1
-- Takeaway 2
-- Takeaway 3
-
-## Next Steps
-
-Recommend what readers should do next.`
-    },
-    {
-      id: "meeting-notes",
-      label: "Meeting Notes",
-      category: "Business",
-      title: "Meeting Notes: [Project / Team Name]",
-      excerpt: "Decisions, action items, and owners from today's meeting.",
-      topic: "Team Collaboration",
-      content: `## Meeting Details
-
-- Date:
-- Time:
-- Attendees:
-- Facilitator:
-
-## Agenda
-
-1. Topic one
-2. Topic two
-3. Topic three
-
-## Discussion Notes
-
-### Topic 1
-
-- Summary:
-- Risks / blockers:
-
-### Topic 2
-
-- Summary:
-- Risks / blockers:
-
-## Decisions Made
-
-- Decision 1
-- Decision 2
-
-## Action Items
-
-- [ ] Owner - Task - Due date
-- [ ] Owner - Task - Due date
-
-## Parking Lot
-
-- Items deferred for later discussion`
-    },
-    {
-      id: "code-snippet",
-      label: "Code Snippet",
-      category: "Technology",
-      title: "Code Walkthrough: [Feature Name]",
-      excerpt: "A focused explanation of a useful snippet and how to adapt it.",
-      topic: "Developer Guide",
-      content: `## What This Snippet Solves
-
-Explain the use case in one or two sentences.
-
-## Code
-
-\`\`\`ts
-export function example(input: string) {
-  if (!input.trim()) {
-    throw new Error("Input is required");
-  }
-
-  return input.toLowerCase();
-}
-\`\`\`
-
-## How It Works
-
-1. Validate input
-2. Transform data
-3. Return normalized output
-
-## Integration Tips
-
-- Add tests for edge cases
-- Handle runtime errors where this is called
-- Extend with domain-specific validation`
-    },
-  ];
-
   const applyTemplate = (templateId: string) => {
-    const template = writingTemplates.find((item) => item.id === templateId);
+    const template = WRITING_TEMPLATES.find((item) => item.id === templateId);
     if (!template) return;
 
     if (content.trim().length > 20) {
@@ -357,18 +234,28 @@ export function example(input: string) {
     }, 0);
   };
 
-  const slashCommands = [
-    { label: "Heading 1", action: () => insertFormat("\n# ", "") },
-    { label: "Heading 2", action: () => insertFormat("\n## ", "") },
-    { label: "Bullet List", action: () => insertFormat("\n- ", "") },
-    { label: "Numbered List", action: () => insertFormat("\n1. ", "") },
-    { label: "Blockquote", action: () => insertFormat("\n> ", "") },
-    { label: "Code Block", action: () => insertFormat("\n```\n", "\n```\n") },
-    { label: "Image", action: () => insertFormat("![", "](url)") },
-    { label: "Table", action: () => insertFormat("\n| Column 1 | Column 2 |\n| --- | --- |\n| Value 1 | Value 2 |\n", "") },
-    { label: "Checklist", action: () => insertFormat("\n- [ ] Task 1\n- [ ] Task 2\n", "") },
-    { label: "Callout", action: () => insertFormat("\n> [!NOTE] Add your key insight here\n", "") },
-  ];
+  const applyAlignment = (align: "left" | "center" | "right" | "justify") => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = content.substring(start, end).trim() || "text";
+    const before = content.substring(0, start);
+    const after = content.substring(end);
+    const wrapped = `<div align='${align}'>\n${selected}\n</div>`;
+
+    setContent(`${before}${wrapped}${after}`);
+
+    setTimeout(() => {
+      textarea.focus();
+      const cursor = start + wrapped.length;
+      textarea.setSelectionRange(cursor, cursor);
+    }, 0);
+  };
+
+  const slashCommands = getSlashCommands(insertFormat);
+  const primaryToolbarButtons = getPrimaryToolbarButtons(insertFormat, applyAlignment);
+  const secondaryToolbarButtons = getSecondaryToolbarButtons(insertFormat);
 
   // Load existing post when editing
   const loadPost = useCallback(async () => {
@@ -419,10 +306,54 @@ export function example(input: string) {
 
   useEffect(() => {
     if (!themeParam || isEditing) return;
+    // Check if theme matches a known theme ID
     if (availableThemes.some((theme) => theme.id === themeParam)) {
       setBlogTheme(themeParam);
+      return;
     }
-  }, [themeParam, isEditing, availableThemes]);
+    // If templateTheme param with color params from gallery, create a temp theme
+    const bg = searchParams.get("bg");
+    const accent = searchParams.get("accent");
+    if (bg && accent) {
+      const tempTheme: BlogTheme = {
+        id: themeParam,
+        name: themeParam.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        description: "Gallery template theme",
+        previewImage: "🎨",
+        source: "custom",
+        fontClass: "font-body",
+        blockVariant: "soft",
+        palette: {
+          background: bg,
+          surface: searchParams.get("surface") || bg,
+          text: searchParams.get("text") || "#d4d4d8",
+          mutedText: searchParams.get("muted") || "#a1a1aa",
+          heading: searchParams.get("heading") || "#ffffff",
+          accent: accent,
+          border: `${accent}30`,
+          codeBackground: bg,
+          codeText: searchParams.get("text") || "#dbeafe",
+          blockquoteBackground: `${bg}ee`,
+          tableHeaderBackground: searchParams.get("surface") || bg,
+        },
+        bgClass: `bg-[${bg}]`,
+        textClass: `text-[${searchParams.get("text") || "#d4d4d8"}]`,
+        headingClass: `text-[${searchParams.get("heading") || "#ffffff"}]`,
+        linkClass: `text-[${accent}] hover:opacity-80`,
+        codeBlockClass: `bg-[${bg}] border border-[${accent}]/20`,
+        blockquoteClass: `border-l-4 border-[${accent}]/40 bg-[${accent}]/5 pl-4 py-2 italic`,
+        cardClass: `bg-[${searchParams.get("surface") || bg}] border-[${accent}]/15`,
+        coverOverlayClass: `from-transparent via-transparent to-[${bg}]`,
+        accentClass: `text-[${accent}]`,
+        proseClass: "prose prose-invert prose-lg",
+      };
+      setAvailableThemes((prev) => {
+        if (prev.some((t) => t.id === tempTheme.id)) return prev;
+        return [tempTheme, ...prev];
+      });
+      setBlogTheme(themeParam);
+    }
+  }, [themeParam, isEditing, availableThemes, searchParams]);
 
   const loadCollaborators = useCallback(async () => {
     if (!editId) {
@@ -655,7 +586,10 @@ export function example(input: string) {
   };
 
   const handleInviteCollaborator = async () => {
-    if (!editId || !inviteEmail.trim()) return;
+    if (!editId) { setCollabMessage("Save your post as a draft first before inviting collaborators."); return; }
+    if (!inviteEmail.trim()) return;
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(inviteEmail.trim())) { setCollabMessage("Please enter a valid email address."); return; }
 
     try {
       setCollabLoading(true);
@@ -863,7 +797,7 @@ export function example(input: string) {
                     {availableThemes.map((theme) => (
                       <button
                         key={theme.id}
-                        onClick={() => { setBlogTheme(theme.id); setShowThemePicker(false); }}
+                        onClick={() => { setBlogTheme(theme.id); setShowThemePicker(false); setThemeNotification(`Applied "${theme.name}" theme`); setTimeout(() => setThemeNotification(""), 3000); }}
                         className={`rounded-lg border p-2 text-left transition-all ${
                           blogTheme === theme.id
                             ? "border-primary bg-primary/10 ring-1 ring-primary/30"
@@ -904,7 +838,7 @@ export function example(input: string) {
                 <span className="material-symbols-outlined text-[15px] text-emerald-400">group_add</span>
                 Collaborate
               </button>
-              {writingTemplates.slice(0, 3).map((template) => (
+              {WRITING_TEMPLATES.slice(0, 3).map((template) => (
                 <button
                   key={template.id}
                   onClick={() => applyTemplate(template.id)}
@@ -953,20 +887,7 @@ export function example(input: string) {
                 </PopoverContent>
               </Popover>
               <TooltipProvider delayDuration={300}>
-                {[
-                  { icon: "format_bold", label: "Bold", action: () => insertFormat("**", "**") },
-                  { icon: "format_italic", label: "Italic", action: () => insertFormat("*", "*") },
-                  { icon: "format_strikethrough", label: "Strikethrough", action: () => insertFormat("~~", "~~") },
-                  { icon: "format_list_bulleted", label: "Bullet List", action: () => insertFormat("\n- ", "") },
-                  { icon: "format_list_numbered", label: "Numbered List", action: () => insertFormat("\n1. ", "") },
-                  { icon: "format_quote", label: "Blockquote", action: () => insertFormat("\n> ", "") },
-                  { icon: "format_align_left", label: "Align Left", action: () => insertFormat("", "") },
-                  { icon: "format_align_center", label: "Center", action: () => insertFormat("<div align='center'>\n", "\n</div>") },
-                  { icon: "format_align_right", label: "Align Right", action: () => insertFormat("<div align='right'>\n", "\n</div>") },
-                  { icon: "link", label: "Link", action: () => insertFormat("[", "](url)") },
-                  { icon: "table", label: "Table", action: () => insertFormat("\n| Column 1 | Column 2 |\n| --- | --- |\n| Value 1 | Value 2 |\n", "") },
-                  { icon: "checklist", label: "Checklist", action: () => insertFormat("\n- [ ] Task 1\n- [ ] Task 2\n", "") },
-                ].map((btn) => (
+                {primaryToolbarButtons.map((btn) => (
                   <Tooltip key={btn.icon}>
                     <TooltipTrigger asChild>
                       <button
@@ -985,15 +906,7 @@ export function example(input: string) {
             {/* Row 2: Secondary toolbar */}
             <div className="flex flex-wrap items-center gap-0.5 px-3 py-1">
               <TooltipProvider delayDuration={300}>
-                {[
-                  { icon: "format_clear", label: "Clear Format", action: () => insertFormat("", "") },
-                  { icon: "horizontal_rule", label: "Divider", action: () => insertFormat("\n\n---\n\n", "") },
-                  { icon: "code", label: "Inline Code", action: () => insertFormat("`", "`") },
-                  { icon: "code_blocks", label: "Code Block", action: () => insertFormat("\n```\n", "\n```\n") },
-                  { icon: "undo", label: "Undo", action: () => document.execCommand("undo") },
-                  { icon: "redo", label: "Redo", action: () => document.execCommand("redo") },
-                  { icon: "help", label: "Markdown Help", action: () => window.open("https://www.markdownguide.org/basic-syntax/", "_blank") },
-                ].map((btn) => (
+                {secondaryToolbarButtons.map((btn) => (
                   <Tooltip key={btn.icon}>
                     <TooltipTrigger asChild>
                       <button
@@ -1026,6 +939,12 @@ export function example(input: string) {
               <div className="mb-4 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm flex items-center gap-2">
                 <span className="material-symbols-outlined text-sm">check_circle</span>
                 {success}
+              </div>
+            )}
+            {themeNotification && (
+              <div className="mb-4 p-3 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-300 text-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-300">
+                <span className="material-symbols-outlined text-sm">palette</span>
+                {themeNotification}
               </div>
             )}
 
@@ -1104,7 +1023,7 @@ export function example(input: string) {
                                 <option value="editor">Editor</option>
                                 <option value="viewer">Viewer</option>
                               </select>
-                              <Button className="sm:col-span-1" disabled={collabLoading || !inviteEmail.trim()} onClick={handleInviteCollaborator}>
+                              <Button className="sm:col-span-1" disabled={collabLoading || !inviteEmail.trim() || !editId} onClick={handleInviteCollaborator}>
                                 Invite
                               </Button>
                             </div>
@@ -1164,7 +1083,7 @@ export function example(input: string) {
 
             <div className="mb-5 flex flex-wrap items-center gap-2 pt-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-600">Template:</span>
-              {writingTemplates.map((template) => (
+              {WRITING_TEMPLATES.map((template) => (
                 <button
                   key={template.id}
                   type="button"
@@ -1361,7 +1280,7 @@ export function example(input: string) {
                   {availableThemes.map((theme) => (
                     <button
                       key={theme.id}
-                      onClick={() => setBlogTheme(theme.id)}
+                      onClick={() => { setBlogTheme(theme.id); setThemeNotification(`Applied "${theme.name}" theme`); setTimeout(() => setThemeNotification(""), 3000); }}
                       className={`rounded-lg border p-2 text-left transition-all ${
                         blogTheme === theme.id
                           ? "border-primary bg-primary/10 ring-1 ring-primary/30"

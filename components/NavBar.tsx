@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useUser } from "@clerk/nextjs";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import NotificationsDropdown from "@/components/NotificationsDropdown";
@@ -16,25 +16,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-// SSR-safe static guest links — used before client hydration to prevent mismatch
-const GUEST_LINKS = [
+const PRIMARY_LINKS = [
   { href: "/", label: "About", icon: "info" },
-  { href: "/community", label: "Community", icon: "groups" },
   { href: "/blog-themes", label: "Themes", icon: "palette" },
-  { href: "/forum", label: "Forum", icon: "forum" },
-  { href: "/careers", label: "Careers", icon: "work" },
   { href: "/innovation", label: "Innovation", icon: "rocket_launch" },
 ];
 
-const AUTH_LINKS = [
-  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
+const EXPLORE_LINKS = [
   { href: "/community", label: "Community", icon: "groups" },
-  { href: "/blog-themes", label: "Themes", icon: "palette" },
   { href: "/forum", label: "Forum", icon: "forum" },
-  { href: "/editor", label: "Write", icon: "edit_note" },
   { href: "/careers", label: "Careers", icon: "work" },
-  { href: "/dashboard/insights", label: "Analytics", icon: "analytics" },
-  { href: "/innovation", label: "Innovation", icon: "rocket_launch" },
 ];
 
 export default function Navbar() {
@@ -42,10 +33,21 @@ export default function Navbar() {
   const { isAdmin, isAuthenticated, profile, user, signOut } = useAuth();
   const { user: clerkUser } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [exploreOpen, setExploreOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   // Prevent hydration mismatch: don't render auth-dependent content until after mount
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Debounced hover handlers to prevent dropdown jittering
+  const exploreTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const profileTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const openExplore = useCallback(() => { clearTimeout(exploreTimer.current); setExploreOpen(true); }, []);
+  const closeExplore = useCallback(() => { exploreTimer.current = setTimeout(() => setExploreOpen(false), 350); }, []);
+  const openProfile = useCallback(() => { clearTimeout(profileTimer.current); setProfileOpen(true); }, []);
+  const closeProfile = useCallback(() => { profileTimer.current = setTimeout(() => setProfileOpen(false), 350); }, []);
 
   useEffect(() => {
     // Warm up common routes so page transitions feel instant.
@@ -56,13 +58,21 @@ export default function Navbar() {
     router.prefetch("/careers");
   }, [router]);
 
-  // isOtpUser = authenticated via OTP or admin cookie (not a Clerk user)
-  const isOtpUser = isAuthenticated && !user?.id?.startsWith("user_");
-  // isClerkUser = authenticated via Clerk (Google / email sign-up)
-  const isClerkUser = isAuthenticated && !!user?.id?.startsWith("user_");
+  // OTP session user is represented by profile without an active Clerk user object.
+  const isOtpUser = mounted && isAuthenticated && !!profile && !clerkUser;
+  const isClerkUser = mounted && isAuthenticated && !!clerkUser;
 
-  // Before hydration, always use guest links to match server render
-  const navLinks = mounted && isAuthenticated ? AUTH_LINKS : GUEST_LINKS;
+  const displayName =
+    (isClerkUser ? clerkUser?.fullName || clerkUser?.firstName : profile?.name) ||
+    user?.name ||
+    "User";
+  const displayEmail =
+    (isClerkUser ? clerkUser?.primaryEmailAddress?.emailAddress : profile?.email) ||
+    user?.email ||
+    "";
+  const avatarUrl =
+    (isClerkUser ? clerkUser?.imageUrl : profile?.avatar_url) ||
+    undefined;
 
   return (
     <>
@@ -72,8 +82,8 @@ export default function Navbar() {
             <Link href="/" className="text-xl font-bold tracking-tighter bg-linear-to-br from-blue-400 via-violet-400 to-emerald-400 bg-clip-text text-transparent hover:opacity-90 transition-opacity">
               AiBlog
             </Link>
-            <div className="hidden md:flex gap-3 text-sm">
-              {navLinks.map((item) => (
+            <div className="hidden md:flex gap-3 text-sm items-center">
+              {PRIMARY_LINKS.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
@@ -83,6 +93,42 @@ export default function Navbar() {
                   {item.label}
                 </Link>
               ))}
+
+              <div onMouseEnter={openExplore} onMouseLeave={closeExplore}>
+                <DropdownMenu open={exploreOpen} onOpenChange={setExploreOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="text-zinc-400 hover:text-primary transition-all font-medium rounded-full px-3 py-1.5 hover:bg-white/5 flex items-center gap-1.5 h-auto"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">explore</span>
+                      Explore
+                      <span className="material-symbols-outlined text-[16px]">expand_more</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" sideOffset={4} className="w-56" onMouseEnter={openExplore} onMouseLeave={closeExplore}>
+                    <div className="absolute -top-4 left-0 right-0 h-4" />
+                    {EXPLORE_LINKS.map((item) => (
+                      <DropdownMenuItem asChild key={item.href}>
+                        <Link href={item.href} className="cursor-pointer flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[16px]">{item.icon}</span>
+                          {item.label}
+                        </Link>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {mounted && isAuthenticated && (
+                <Link
+                  href="/dashboard"
+                  className="text-zinc-400 hover:text-primary transition-all font-medium rounded-full px-3 py-1.5 hover:bg-white/5 flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">dashboard</span>
+                  Dashboard
+                </Link>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -97,118 +143,68 @@ export default function Navbar() {
                 )}
                 
                 {/* Show OTP User Profile or Clerk Profile */}
-                {isOtpUser && profile ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full overflow-hidden">
-                        {profile.avatar_url ? (
-                          <Image
-                            src={profile.avatar_url}
-                            alt={profile.name}
-                            width={32}
-                            height={32}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold">
-                            {profile.name?.[0]?.toUpperCase() || "U"}
+                {(isOtpUser || isClerkUser) && (
+                  <div onMouseEnter={openProfile} onMouseLeave={closeProfile}>
+                    <DropdownMenu open={profileOpen} onOpenChange={setProfileOpen}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          className="h-9 px-1.5 rounded-full border border-white/10 hover:bg-white/5 flex items-center gap-2"
+                        >
+                          <div className="w-7 h-7 rounded-full overflow-hidden">
+                            {avatarUrl ? (
+                              <Image
+                                src={avatarUrl}
+                                alt={displayName}
+                                width={28}
+                                height={28}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-xs font-bold">
+                                {displayName?.[0]?.toUpperCase() || "U"}
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <div className="px-2 py-1.5">
-                        <p className="text-sm font-semibold text-white">{profile.name}</p>
-                        <p className="text-xs text-zinc-400">{profile.email}</p>
-                        {profile.role === "admin" && (
-                          <p className="text-xs text-blue-400 font-semibold mt-1">👑 Admin</p>
-                        )}
-                      </div>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link href="/dashboard" className="cursor-pointer">
-                          Dashboard
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/dashboard/settings" className="cursor-pointer">
-                          Settings
-                        </Link>
-                      </DropdownMenuItem>
-                      {profile.role === "admin" && (
+                          <span className="hidden lg:block text-sm max-w-35 truncate text-zinc-200">{displayName}</span>
+                          <span className="material-symbols-outlined text-[16px] text-zinc-400">expand_more</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" sideOffset={4} className="w-56" onMouseEnter={openProfile} onMouseLeave={closeProfile}>
+                        <div className="absolute -top-4 left-0 right-0 h-4" />
+                        <div className="px-2 py-1.5">
+                          <p className="text-sm font-semibold text-white">{displayName}</p>
+                          <p className="text-xs text-zinc-400 truncate">{displayEmail}</p>
+                          {isAdmin && (
+                            <p className="text-xs text-blue-400 font-semibold mt-1">Admin</p>
+                          )}
+                        </div>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
-                          <Link href="/admin" className="cursor-pointer">
-                            Admin Panel
-                          </Link>
+                          <Link href="/dashboard" className="cursor-pointer">Dashboard</Link>
                         </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          void signOut();
-                        }}
-                        className="text-red-400 cursor-pointer"
-                      >
-                        Sign Out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : isClerkUser && clerkUser ? (
-                  // Clerk user — custom dropdown so sign-out goes through /auth/signout
-                  // (avoids Clerk v7 stale Server Action hash error on UserButton)
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full overflow-hidden">
-                        {clerkUser.imageUrl ? (
-                          <Image
-                            src={clerkUser.imageUrl}
-                            alt={clerkUser.fullName || "User"}
-                            width={32}
-                            height={32}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-linear-to-br from-violet-400 to-blue-500 flex items-center justify-center text-white text-xs font-bold">
-                            {(clerkUser.fullName || clerkUser.firstName || "U")?.[0]?.toUpperCase()}
-                          </div>
-                        )}
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <div className="px-2 py-1.5">
-                        <p className="text-sm font-semibold text-white">
-                          {clerkUser.fullName || clerkUser.firstName || "User"}
-                        </p>
-                        <p className="text-xs text-zinc-400">
-                          {clerkUser.primaryEmailAddress?.emailAddress}
-                        </p>
-                      </div>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <Link href="/dashboard" className="cursor-pointer">Dashboard</Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem asChild>
-                        <Link href="/dashboard/settings" className="cursor-pointer">Settings</Link>
-                      </DropdownMenuItem>
-                      {isAdmin && (
                         <DropdownMenuItem asChild>
-                          <Link href="/admin" className="cursor-pointer">Admin Panel</Link>
+                          <Link href="/dashboard/settings" className="cursor-pointer">Settings</Link>
                         </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          void signOut();
-                        }}
-                        className="text-red-400 cursor-pointer"
-                      >
-                        Sign Out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : null}
+                        {isAdmin && (
+                          <DropdownMenuItem asChild>
+                            <Link href="/admin" className="cursor-pointer">Admin Panel</Link>
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            void signOut();
+                          }}
+                          className="text-red-400 cursor-pointer"
+                        >
+                          Sign Out
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
                 
                 <Button asChild className="px-5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
                   <Link href="/editor">Create Post</Link>
@@ -236,7 +232,7 @@ export default function Navbar() {
         </nav>
         {menuOpen && (
           <div className="md:hidden bg-surface-container-low border-t border-white/5 px-6 py-4 space-y-2">
-            {navLinks.map((item) => (
+            {PRIMARY_LINKS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -247,6 +243,32 @@ export default function Navbar() {
                 {item.label}
               </Link>
             ))}
+
+            <div className="pt-1 pb-1">
+              <p className="px-2 py-1 text-xs uppercase tracking-wide text-zinc-500">Explore</p>
+              {EXPLORE_LINKS.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="text-sm text-zinc-300 hover:text-white rounded-lg px-2 py-2 hover:bg-white/5 transition-colors flex items-center gap-2"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+
+            {isAuthenticated && mounted && (
+              <Link
+                href="/dashboard"
+                className="text-sm text-zinc-300 hover:text-white rounded-lg px-2 py-2 hover:bg-white/5 transition-colors flex items-center gap-2"
+                onClick={() => setMenuOpen(false)}
+              >
+                <span className="material-symbols-outlined text-[18px]">dashboard</span>
+                Dashboard
+              </Link>
+            )}
 
             {!isAuthenticated && mounted && (
               <Link href="/auth" className="block text-sm text-primary font-semibold px-2 py-2" onClick={() => setMenuOpen(false)}>Login / Sign Up</Link>

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
 import { getAuthUserId } from '@/lib/auth-helpers';
 import { logActivity } from '@/lib/activity-log';
+
+// Sanitize user input for PostgREST filter strings
+function sanitizeFilterInput(input: string): string {
+  return input.replace(/[,.()'"\\]/g, '').trim();
+}
 
 type SearchablePost = {
   title?: string | null;
@@ -126,10 +130,14 @@ export async function GET(request: NextRequest) {
 
     if (published) {
       query = query.eq('status', 'published');
+      if (!canSeeUnpublished) {
+        query = query.eq('approval_status', 'approved');
+      }
     } else if (status && canSeeUnpublished) {
       query = query.eq('status', status);
     } else if (!canSeeUnpublished) {
       query = query.eq('status', 'published');
+      query = query.eq('approval_status', 'approved');
     }
 
     if (userId) {
@@ -137,7 +145,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.or(`title.ilike.%${search}%,excerpt.ilike.%${search}%,content.ilike.%${search}%,topic.ilike.%${search}%,category.ilike.%${search}%`);
+      const safe = sanitizeFilterInput(search);
+      if (safe) {
+        query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content.ilike.%${safe}%,topic.ilike.%${safe}%,category.ilike.%${safe}%`);
+      }
     }
 
     if (topic) {
@@ -164,10 +175,14 @@ export async function GET(request: NextRequest) {
 
       if (published) {
         fallbackQuery = fallbackQuery.eq('status', 'published');
+        if (!canSeeUnpublished) {
+          fallbackQuery = fallbackQuery.eq('approval_status', 'approved');
+        }
       } else if (status && canSeeUnpublished) {
         fallbackQuery = fallbackQuery.eq('status', status);
       } else if (!canSeeUnpublished) {
         fallbackQuery = fallbackQuery.eq('status', 'published');
+        fallbackQuery = fallbackQuery.eq('approval_status', 'approved');
       }
 
       if (userId) {
@@ -175,7 +190,10 @@ export async function GET(request: NextRequest) {
       }
 
       if (search) {
-        fallbackQuery = fallbackQuery.or(`title.ilike.%${search}%,excerpt.ilike.%${search}%,content.ilike.%${search}%,topic.ilike.%${search}%`);
+        const safe = sanitizeFilterInput(search);
+        if (safe) {
+          fallbackQuery = fallbackQuery.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content.ilike.%${safe}%,topic.ilike.%${safe}%`);
+        }
       }
 
       if (topic) {
@@ -210,19 +228,27 @@ export async function GET(request: NextRequest) {
     const likedByCurrentUser = new Set<string>();
 
     if (postIds.length > 0) {
-      const [{ data: likeRows, error: likesError }, { data: commentRows, error: commentsError }] = await Promise.all([
-        supabase
-          .from('post_likes')
-          .select('post_id')
-          .in('post_id', postIds),
-        supabase
-          .from('comments')
-          .select('post_id')
-          .in('post_id', postIds),
-      ]);
+      // Try post_likes first, fall back to likes table
+      let likeRows: any[] | null = null;
+      let likesError: any = null;
+
+      const result1 = await supabase.from('post_likes').select('post_id').in('post_id', postIds);
+      if (result1.error) {
+        console.warn('post_likes query warning, trying likes table:', result1.error.message);
+        const result2 = await supabase.from('likes').select('post_id').in('post_id', postIds);
+        likeRows = result2.data;
+        likesError = result2.error;
+      } else {
+        likeRows = result1.data;
+      }
+
+      const { data: commentRows, error: commentsError } = await supabase
+        .from('comments')
+        .select('post_id')
+        .in('post_id', postIds);
 
       if (likesError) {
-        console.warn('post_likes query warning:', likesError.message);
+        console.warn('likes query warning:', likesError.message);
       }
       if (commentsError) {
         console.warn('comments query warning:', commentsError.message);
@@ -239,11 +265,23 @@ export async function GET(request: NextRequest) {
       }
 
       if (authUserId) {
-        const { data: likedRows } = await supabase
+        let likedRows: any[] | null = null;
+        const likedResult1 = await supabase
           .from('post_likes')
           .select('post_id')
           .eq('user_id', authUserId)
           .in('post_id', postIds);
+
+        if (likedResult1.error) {
+          const likedResult2 = await supabase
+            .from('likes')
+            .select('post_id')
+            .eq('user_id', authUserId)
+            .in('post_id', postIds);
+          likedRows = likedResult2.data;
+        } else {
+          likedRows = likedResult1.data;
+        }
 
         for (const row of likedRows || []) {
           if (row.post_id) likedByCurrentUser.add(row.post_id);
@@ -291,27 +329,11 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
     const body = await request.json();
-    const { title, content, excerpt, image_url, cover_image_url, published, ai_generated, aiGenerated, topic, category, status, userId: bodyUserId, blog_theme } = body;
+    const { title, content, excerpt, image_url, cover_image_url, published, ai_generated, aiGenerated, topic, category, status, blog_theme } = body;
 
-    // Get user ID from either Clerk auth or OTP session
-    let userId = bodyUserId;
+    // Get user ID from authenticated session (Clerk or OTP)
+    const userId = await getAuthUserId(request);
     
-    // Try Clerk auth first
-    const clerkAuth = await auth();
-    if (clerkAuth.userId) {
-      userId = clerkAuth.userId;
-    } else {
-      // Check for OTP session
-      const otpSession = request.cookies.get("otp_session");
-      if (!otpSession?.value && !bodyUserId) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-      // For OTP users, userId should be in the bodyUserId or we extract from the profile
-      if (!userId) {
-        return NextResponse.json({ error: 'Unauthorized - userId required' }, { status: 401 });
-      }
-    }
-
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -338,6 +360,7 @@ export async function POST(request: NextRequest) {
         cover_image_url: cover_image_url || image_url || null,
         slug,
         status: published ? 'published' : (status || 'draft'),
+        approval_status: 'pending',
         ai_generated: isAiGenerated,
         topic: topic || null,
         category: category || null,
