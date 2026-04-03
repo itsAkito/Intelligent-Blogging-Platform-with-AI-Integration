@@ -19,15 +19,7 @@ create index if not exists idx_support_tickets_created_at on public.support_tick
 
 alter table public.support_tickets enable row level security;
 
--- Authenticated users can create tickets and view their own
-create policy "Users can create support tickets"
-  on public.support_tickets for insert
-  to authenticated
-  with check (true);
-
-create policy "Users can view own tickets"
-  on public.support_tickets for select
-  to authenticated
-  using (user_id = auth.uid()::text);
-
--- Service role (admin API) has full access via supabase service role key
+-- Service role (used by our API) has full access
+drop policy if exists "service_role_all_support_tickets" on public.support_tickets;
+create policy "service_role_all_support_tickets"
+  on public.support_tickets for all using (true) with check (true);

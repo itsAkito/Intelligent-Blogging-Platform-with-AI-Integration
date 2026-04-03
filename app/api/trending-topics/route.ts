@@ -43,8 +43,8 @@ export async function GET(req: NextRequest) {
     const { data: topics, error, count } = await supabase
       .from('trending_topics')
       .select('*', { count: 'exact' })
-      .gte('last_updated', fromDate.toISOString())
-      .order('engagement_score', { ascending: false })
+      .gte('updated_at', fromDate.toISOString())
+      .order('engagement_count', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (error) {

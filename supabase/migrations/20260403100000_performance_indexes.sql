@@ -27,7 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON public.notifications
 CREATE INDEX IF NOT EXISTS idx_user_follows_pair ON public.user_follows(follower_id, following_id);
 
 -- Subscriptions: user tier lookups
-CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON public.subscriptions(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON public.user_subscriptions(user_id, status);
 
 -- Post collaborators: invite lookups
 CREATE INDEX IF NOT EXISTS idx_post_collab_user ON public.post_collaborators(user_id, status);

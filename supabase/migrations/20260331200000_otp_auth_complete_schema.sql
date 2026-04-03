@@ -27,7 +27,8 @@ CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
 CREATE INDEX IF NOT EXISTS idx_profiles_role  ON public.profiles(role);
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "service_role_all_profiles"
+DROP POLICY IF EXISTS "service_role_all_profiles" ON public.profiles;
+CREATE POLICY "service_role_all_profiles"
   ON public.profiles FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================
@@ -48,7 +49,8 @@ CREATE INDEX IF NOT EXISTS idx_otp_codes_email   ON public.otp_codes(email);
 CREATE INDEX IF NOT EXISTS idx_otp_codes_expires ON public.otp_codes(expires_at);
 
 ALTER TABLE public.otp_codes ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "service_role_all_otp_codes"
+DROP POLICY IF EXISTS "service_role_all_otp_codes" ON public.otp_codes;
+CREATE POLICY "service_role_all_otp_codes"
   ON public.otp_codes FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================
@@ -74,7 +76,8 @@ CREATE INDEX IF NOT EXISTS idx_otp_sessions_email  ON public.otp_sessions(email)
 CREATE INDEX IF NOT EXISTS idx_otp_sessions_active ON public.otp_sessions(is_active) WHERE is_active = true;
 
 ALTER TABLE public.otp_sessions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "service_role_all_otp_sessions"
+DROP POLICY IF EXISTS "service_role_all_otp_sessions" ON public.otp_sessions;
+CREATE POLICY "service_role_all_otp_sessions"
   ON public.otp_sessions FOR ALL USING (true) WITH CHECK (true);
 
 -- Cleanup function for expired sessions
@@ -104,7 +107,8 @@ CREATE INDEX IF NOT EXISTS idx_otp_audit_user   ON public.otp_login_audit(user_i
 CREATE INDEX IF NOT EXISTS idx_otp_audit_date   ON public.otp_login_audit(attempted_at DESC);
 
 ALTER TABLE public.otp_login_audit ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "service_role_all_audit"
+DROP POLICY IF EXISTS "service_role_all_audit" ON public.otp_login_audit;
+CREATE POLICY "service_role_all_audit"
   ON public.otp_login_audit FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================
@@ -128,7 +132,8 @@ CREATE INDEX IF NOT EXISTS idx_user_pwd_locked
   ON public.user_password_credentials(locked_until);
 
 ALTER TABLE public.user_password_credentials ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "service_role_all_passwords"
+DROP POLICY IF EXISTS "service_role_all_passwords" ON public.user_password_credentials;
+CREATE POLICY "service_role_all_passwords"
   ON public.user_password_credentials FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================
@@ -149,7 +154,8 @@ CREATE INDEX IF NOT EXISTS idx_pwd_reset_expires
   ON public.password_reset_tokens(expires_at);
 
 ALTER TABLE public.password_reset_tokens ENABLE ROW LEVEL SECURITY;
-CREATE POLICY IF NOT EXISTS "service_role_all_pwd_reset"
+DROP POLICY IF EXISTS "service_role_all_pwd_reset" ON public.password_reset_tokens;
+CREATE POLICY "service_role_all_pwd_reset"
   ON public.password_reset_tokens FOR ALL USING (true) WITH CHECK (true);
 
 -- ============================================================
