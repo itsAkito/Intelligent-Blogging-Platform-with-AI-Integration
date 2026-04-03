@@ -69,20 +69,37 @@ CREATE TABLE IF NOT EXISTS public.processed_payments (
 CREATE INDEX IF NOT EXISTS idx_processed_payments_user ON public.processed_payments(user_id, verified_at DESC);
 
 -- ── Additional composite indexes ─────────────────────────────────────────────
--- Comments: approved comments by post ordered by time (common display query)
-CREATE INDEX IF NOT EXISTS idx_comments_post_approved ON public.comments(post_id, created_at DESC)
-  WHERE is_approved = true;
+-- Comments: by post ordered by time (common display query)
+CREATE INDEX IF NOT EXISTS idx_comments_post_approved ON public.comments(post_id, created_at DESC);
 
 -- Posts: approval queue (admin panel)
-CREATE INDEX IF NOT EXISTS idx_posts_approval_queue ON public.posts(approval_status, created_at DESC)
-  WHERE approval_status = 'pending';
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='posts' AND column_name='approval_status') THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_posts_approval_queue ON public.posts(approval_status, created_at DESC) WHERE approval_status = ''pending''';
+  END IF;
+END $$;
 
 -- Notifications: SSE-friendly (user, newest first, unread)
-CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON public.notifications(user_id, created_at DESC);
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='notifications') THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON public.notifications(user_id, created_at DESC)';
+  END IF;
+END $$;
 
 -- User resumes: quick per-user lookup
-CREATE INDEX IF NOT EXISTS idx_user_resumes_user ON public.user_resumes(user_id, updated_at DESC);
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='user_resumes') THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_user_resumes_user ON public.user_resumes(user_id, updated_at DESC)';
+  END IF;
+END $$;
 
 -- Jobs: open positions by created_at
-CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON public.jobs(status, created_at DESC)
-  WHERE status = 'open';
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='jobs') THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_jobs_status_created ON public.jobs(status, created_at DESC) WHERE status = ''open''';
+  END IF;
+END $$;

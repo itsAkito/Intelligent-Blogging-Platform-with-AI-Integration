@@ -41,14 +41,29 @@ CREATE INDEX IF NOT EXISTS idx_resume_files_resume_id ON public.resume_files(res
 -- 3) RLS for resume_files
 ALTER TABLE public.resume_files ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view their own resume files" ON public.resume_files
-  FOR SELECT USING (auth.uid()::text = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can view their own resume files' AND tablename = 'resume_files') THEN
+    CREATE POLICY "Users can view their own resume files" ON public.resume_files
+      FOR SELECT USING (auth.uid()::text = user_id);
+  END IF;
+END $$;
 
-CREATE POLICY "Users can insert their own resume files" ON public.resume_files
-  FOR INSERT WITH CHECK (auth.uid()::text = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can insert their own resume files' AND tablename = 'resume_files') THEN
+    CREATE POLICY "Users can insert their own resume files" ON public.resume_files
+      FOR INSERT WITH CHECK (auth.uid()::text = user_id);
+  END IF;
+END $$;
 
-CREATE POLICY "Users can delete their own resume files" ON public.resume_files
-  FOR DELETE USING (auth.uid()::text = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Users can delete their own resume files' AND tablename = 'resume_files') THEN
+    CREATE POLICY "Users can delete their own resume files" ON public.resume_files
+      FOR DELETE USING (auth.uid()::text = user_id);
+  END IF;
+END $$;
 
 -- 4) Admin policies - allow admins to view all resumes and files
 -- Using a function to check admin role from profiles
