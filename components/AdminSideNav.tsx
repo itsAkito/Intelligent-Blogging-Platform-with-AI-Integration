@@ -15,6 +15,8 @@ export default function AdminSideNav({ activePage = "overview" }: AdminSideNavPr
     { id: "moderation", label: "Content Moderation", icon: "fact_check", href: "/admin/moderation" },
     { id: "career-paths", label: "Career Path Config", icon: "alt_route", href: "/admin/career-paths" },
     { id: "analytics", label: "Platform Analytics", icon: "analytics", href: "/admin/analytics" },
+    { id: "support", label: "User Support", icon: "support_agent", href: "/admin/support" },
+    { id: "docs", label: "Documentation", icon: "description", href: "/admin/docs" },
     { id: "settings", label: "System Settings", icon: "settings_suggest", href: "/admin/settings" },
   ];
 
@@ -40,15 +42,6 @@ export default function AdminSideNav({ activePage = "overview" }: AdminSideNavPr
             {item.label}
           </Link>
         ))}
-      </div>
-
-      <div className="p-4 flex flex-col gap-2 mt-auto">
-        <a className="flex items-center gap-3 p-3 text-zinc-400 hover:text-white transition-colors" href="#">
-          <span className="material-symbols-outlined text-[20px]">help_outline</span> Support
-        </a>
-        <a className="flex items-center gap-3 p-3 text-zinc-400 hover:text-white transition-colors" href="#">
-          <span className="material-symbols-outlined text-[20px]">description</span> Documentation
-        </a>
       </div>
     </aside>
   );

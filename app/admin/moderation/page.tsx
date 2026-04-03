@@ -252,9 +252,9 @@ export default function ModerationPage() {
       <main className="md:ml-64 pt-20 min-h-screen p-8">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h2 className="text-4xl font-extrabold font-headline tracking-tighter text-white flex items-center gap-3">
+            <h2 className="text-3xl font-extrabold font-headline tracking-tighter text-white flex items-center gap-2">
               Content Moderation
-              <AiBadge variant="chip" label="AI-assisted" />
+              <AiBadge variant="compact" />
             </h2>
             <p className="text-sm text-on-surface-variant mt-1">
               Review pending blog posts and user comments in real time. AI flags suspicious content automatically.
@@ -383,9 +383,9 @@ export default function ModerationPage() {
                   </p>
 
                   {/* AI Suggestion */}
-                  <div className="mb-6 p-3 rounded-lg bg-violet-500/8 border border-violet-500/20">
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <AiBadge variant="chip" label="AI Suggestion" />
+                  <div className="mb-6 p-2.5 rounded-lg bg-violet-500/8 border border-violet-500/20">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <AiBadge variant="compact" />
                     </div>
                     <p className="text-xs text-on-surface-variant">
                       Content quality looks good. No spam or policy violations detected. Recommended: <strong className="text-green-300">Approve</strong>.
@@ -448,9 +448,9 @@ export default function ModerationPage() {
                 </div>
 
                 {/* AI Suggestion */}
-                <div className="mb-6 p-3 rounded-lg bg-violet-500/8 border border-violet-500/20">
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <AiBadge variant="chip" label="AI Analysis" />
+                <div className="mb-6 p-2.5 rounded-lg bg-violet-500/8 border border-violet-500/20">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <AiBadge variant="compact" />
                   </div>
                   <p className="text-xs text-on-surface-variant">
                     {selectedComment.flagged_as_spam

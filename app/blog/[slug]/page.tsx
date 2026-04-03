@@ -110,6 +110,11 @@ export default function BlogPostPage() {
       if (res.ok) {
         const data = await res.json();
         setLikers(data.likers || []);
+        const freshCount = data.count ?? data.likesCount;
+        if (freshCount !== undefined) {
+          setPost((current) => current ? { ...current, likes_count: freshCount } : current);
+          setLiked(Boolean(data.likedByCurrentUser));
+        }
       }
     } catch (err) {
       console.error("Failed to load likers:", err);
@@ -232,7 +237,8 @@ export default function BlogPostPage() {
           });
           fetchLikers();
         } else {
-          throw new Error("Failed to like post");
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to like post");
         }
       }
     } catch (err) {
@@ -245,7 +251,12 @@ export default function BlogPostPage() {
         likedByCurrentUser: liked,
         source: "blog",
       });
-      alert("Failed to toggle like. Please try again.");
+      const msg = err instanceof Error ? err.message : "Failed to toggle like";
+      if (msg.includes("Unauthorized")) {
+        alert("Please sign in to like this post.");
+      } else {
+        alert(msg);
+      }
     }
   };
 

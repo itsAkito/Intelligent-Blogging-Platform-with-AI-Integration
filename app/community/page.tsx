@@ -136,7 +136,7 @@ function CommunityContent() {
     const fetchPosts = async () => {
       setLoading(true);
       try {
-        const params = new URLSearchParams({ limit: "20" });
+        const params = new URLSearchParams({ limit: "20", published: "true" });
         if (urlSearch) params.set("search", urlSearch);
         const response = await fetch(`/api/posts?${params.toString()}`);
         if (response.ok) {

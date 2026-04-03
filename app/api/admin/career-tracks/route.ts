@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { auth } from "@clerk/nextjs/server";
+import { verifyAdminSessionCookie } from "@/lib/admin-auth";
+
+async function getAdminIdentity(req: NextRequest): Promise<string | null> {
+  try {
+    const { userId } = await auth();
+    if (userId) return userId;
+  } catch {}
+  const adminData = verifyAdminSessionCookie(req);
+  if (adminData) return adminData;
+  return null;
+}
 
 export async function GET() {
   try {
@@ -24,8 +35,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const adminId = await getAdminIdentity(req);
+    if (!adminId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const supabase = await createClient();
@@ -53,8 +64,8 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const { userId } = await auth();
-    if (!userId) {
+    const adminId = await getAdminIdentity(req);
+    if (!adminId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     const supabase = await createClient();

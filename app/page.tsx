@@ -568,7 +568,7 @@ export default function Home() {
               <div className="relative flex items-center justify-between gap-4 flex-wrap mb-8">
                 <div>
                   <span className="text-[10px] font-bold tracking-[0.25em] text-emerald-300/90 uppercase block mb-2">Theme Gallery</span>
-                  <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tighter text-white">200+ Blog Themes Across 15 Categories</h2>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tighter text-white">200+ Blog Themes Across 20 Categories</h2>
                   <p className="text-sm text-emerald-100/60 mt-2 max-w-2xl">
                     Professional editorial palettes for every niche — from business to photography, code to culinary. Pick a theme and start writing instantly.
                   </p>
@@ -580,17 +580,22 @@ export default function Home() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 relative">
                 {[
-                  { name: "Sahara Executive", cat: "Business", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400&h=500&fit=crop&q=80" },
-                  { name: "Neon Circuit", cat: "Technology", image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&h=340&fit=crop&q=80" },
-                  { name: "Cosmos", cat: "Science", image: "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=400&h=440&fit=crop&q=80" },
-                  { name: "Dark Gallery", cat: "Photography", image: "https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=400&h=360&fit=crop&q=80" },
-                  { name: "Dracula Code", cat: "Code Space", image: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=400&h=380&fit=crop&q=80" },
-                  { name: "Zen Garden", cat: "Wellness", image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=480&fit=crop&q=80" },
-                  { name: "Fire Kitchen", cat: "Culinary", image: "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=400&h=340&fit=crop&q=80" },
-                  { name: "Compass", cat: "Travel", image: "https://images.unsplash.com/photo-1488085061387-422e29b40080?w=400&h=420&fit=crop&q=80" },
+                  { name: "Sahara Executive", cat: "Business", desc: "Warm tones for corporate storytelling and thought leadership.", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400&h=500&fit=crop&q=80" },
+                  { name: "Neon Circuit", cat: "Technology", desc: "Futuristic neon palette for tech blogs and startup chronicles.", image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&h=340&fit=crop&q=80" },
+                  { name: "Cosmos", cat: "Science", desc: "Deep space aesthetic for research papers and scientific discovery.", image: "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=400&h=440&fit=crop&q=80" },
+                  { name: "Dark Gallery", cat: "Photography", desc: "Moody gallery layout to showcase visual portfolios and photo essays.", image: "https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=400&h=360&fit=crop&q=80" },
+                  { name: "Dracula Code", cat: "Code Space", desc: "Syntax-highlighted dark theme for developer tutorials and docs.", image: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=400&h=380&fit=crop&q=80" },
+                  { name: "Zen Garden", cat: "Wellness", desc: "Serene greens and soft tones for mindfulness and health content.", image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=480&fit=crop&q=80" },
+                  { name: "Fire Kitchen", cat: "Culinary", desc: "Bold warm palette for recipes, food reviews, and culinary arts.", image: "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=400&h=340&fit=crop&q=80" },
+                  { name: "Compass", cat: "Travel", desc: "Adventure-ready layout for travel journals and destination guides.", image: "https://images.unsplash.com/photo-1488085061387-422e29b40080?w=400&h=420&fit=crop&q=80" },
+                  { name: "Ledger Noir", cat: "Finance", desc: "Clean, data-driven layout for fintech analysis and market commentary.", image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=400&h=400&fit=crop&q=80" },
+                  { name: "Canvas Bloom", cat: "Art & Design", desc: "Creative palette for digital art showcases and design case studies.", image: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400&h=440&fit=crop&q=80" },
+                  { name: "Scholar Press", cat: "Education", desc: "Academic-focused theme for courses, tutorials, and learning resources.", image: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=380&fit=crop&q=80" },
+                  { name: "Pulse Beat", cat: "Music", desc: "Rhythm-inspired layout for album reviews, playlists, and artist spotlights.", image: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=400&h=420&fit=crop&q=80" },
+                  { name: "Green Thread", cat: "Sustainability", desc: "Eco-conscious design for environmental stories and green innovation.", image: "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=400&h=460&fit=crop&q=80" },
                 ].map((theme) => (
-                  <Link href="/blog-themes" key={theme.name} className="group relative block overflow-hidden border border-white/10 bg-black/30 hover:border-emerald-400/35 hover:bg-black/45 transition-all">
-                    <div className="h-44 overflow-hidden">
+                  <div key={theme.name} className="group relative block overflow-hidden border border-white/10 bg-black/30 hover:border-emerald-400/35 hover:bg-black/45 transition-all">
+                    <div className="h-44 overflow-hidden relative">
                       <Image
                         src={theme.image}
                         alt={theme.name}
@@ -599,17 +604,77 @@ export default function Home() {
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                       />
                       <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/35 to-transparent" />
+                      {/* Hover overlay with description + View Detail */}
+                      <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-center p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                        <p className="text-xs text-emerald-100/90 leading-relaxed mb-4">{theme.desc}</p>
+                        <Link
+                          href="/blog-themes"
+                          className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-emerald-400/50 text-emerald-300 rounded-md hover:bg-emerald-400/20 transition-colors"
+                        >
+                          View Detail
+                        </Link>
+                      </div>
                     </div>
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <div className="absolute bottom-8 left-0 right-0 p-3 pointer-events-none">
                       <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-emerald-300/80 block mb-0.5">{theme.cat}</span>
                       <span className="text-xs font-bold text-white leading-tight">{theme.name}</span>
                     </div>
                     <div className="border-t border-white/10 px-3 py-2 text-[11px] text-emerald-100/75 bg-black/45">
                       Open this theme in editor
                     </div>
-                  </Link>
+                  </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Newsletter Section */}
+        <section id="newsletter" className="py-20 sm:py-28 px-4 sm:px-8 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_45%),linear-gradient(165deg,rgba(59,130,246,0.08),rgba(0,0,0,0))]">
+          <div className="max-w-3xl mx-auto text-center reveal-on-scroll">
+            <span className="text-[10px] font-bold tracking-[0.2em] text-on-surface-variant uppercase block mb-4">Stay Informed</span>
+            <h2 className="text-4xl sm:text-5xl font-extrabold font-headline tracking-tighter mb-4">
+              Join Our <span className="text-gradient">Newsletter</span>
+            </h2>
+            <p className="text-on-surface-variant mb-8 max-w-lg mx-auto">
+              Get the latest AI-powered editorial insights, career tips, and platform updates delivered straight to your inbox. No spam, ever.
+            </p>
+
+            <form onSubmit={handleNewsletter} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+              <Input
+                type="email"
+                value={newsletterEmail}
+                onChange={(e) => setNewsletterEmail(e.target.value)}
+                placeholder="Enter your email"
+                className="flex-1 px-5 py-3.5 h-auto rounded-xl bg-surface-container-low border-outline-variant/20 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus-visible:ring-primary/50"
+                required
+              />
+              <Button
+                type="submit"
+                disabled={newsletterStatus === "loading"}
+                className="px-8 py-3.5 h-auto bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20"
+              >
+                {newsletterStatus === "loading" ? "Subscribing..." : "Subscribe"}
+              </Button>
+            </form>
+
+            {newsletterStatus === "success" && (
+              <p className="mt-4 text-green-400 text-sm flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-sm">check_circle</span>
+                {newsletterMessage}
+              </p>
+            )}
+            {newsletterStatus === "error" && (
+              <p className="mt-4 text-error text-sm flex items-center justify-center gap-2">
+                <span className="material-symbols-outlined text-sm">error</span>
+                {newsletterMessage}
+              </p>
+            )}
+
+            <div className="mt-8 flex justify-center gap-8 text-[10px] uppercase tracking-wider text-on-surface-variant">
+              <Badge variant="outline" className="border-transparent gap-2"><span className="material-symbols-outlined text-primary text-sm">check_circle</span> Free forever</Badge>
+              <Badge variant="outline" className="border-transparent gap-2"><span className="material-symbols-outlined text-primary text-sm">check_circle</span> Weekly digest</Badge>
+              <Badge variant="outline" className="border-transparent gap-2"><span className="material-symbols-outlined text-primary text-sm">check_circle</span> Unsubscribe anytime</Badge>
             </div>
           </div>
         </section>
@@ -712,56 +777,6 @@ export default function Home() {
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        </section>
-
-        {/* Newsletter Section */}
-        <section id="newsletter" className="py-20 sm:py-28 px-4 sm:px-8 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_45%),linear-gradient(165deg,rgba(59,130,246,0.08),rgba(0,0,0,0))]">
-          <div className="max-w-3xl mx-auto text-center reveal-on-scroll">
-            <span className="text-[10px] font-bold tracking-[0.2em] text-on-surface-variant uppercase block mb-4">Stay Informed</span>
-            <h2 className="text-4xl sm:text-5xl font-extrabold font-headline tracking-tighter mb-4">
-              Join Our <span className="text-gradient">Newsletter</span>
-            </h2>
-            <p className="text-on-surface-variant mb-8 max-w-lg mx-auto">
-              Get the latest AI-powered editorial insights, career tips, and platform updates delivered straight to your inbox. No spam, ever.
-            </p>
-
-            <form onSubmit={handleNewsletter} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-              <Input
-                type="email"
-                value={newsletterEmail}
-                onChange={(e) => setNewsletterEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="flex-1 px-5 py-3.5 h-auto rounded-xl bg-surface-container-low border-outline-variant/20 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus-visible:ring-primary/50"
-                required
-              />
-              <Button
-                type="submit"
-                disabled={newsletterStatus === "loading"}
-                className="px-8 py-3.5 h-auto bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20"
-              >
-                {newsletterStatus === "loading" ? "Subscribing..." : "Subscribe"}
-              </Button>
-            </form>
-
-            {newsletterStatus === "success" && (
-              <p className="mt-4 text-green-400 text-sm flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-sm">check_circle</span>
-                {newsletterMessage}
-              </p>
-            )}
-            {newsletterStatus === "error" && (
-              <p className="mt-4 text-error text-sm flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-sm">error</span>
-                {newsletterMessage}
-              </p>
-            )}
-
-            <div className="mt-8 flex justify-center gap-8 text-[10px] uppercase tracking-wider text-on-surface-variant">
-              <Badge variant="outline" className="border-transparent gap-2"><span className="material-symbols-outlined text-primary text-sm">check_circle</span> Free forever</Badge>
-              <Badge variant="outline" className="border-transparent gap-2"><span className="material-symbols-outlined text-primary text-sm">check_circle</span> Weekly digest</Badge>
-              <Badge variant="outline" className="border-transparent gap-2"><span className="material-symbols-outlined text-primary text-sm">check_circle</span> Unsubscribe anytime</Badge>
             </div>
           </div>
         </section>

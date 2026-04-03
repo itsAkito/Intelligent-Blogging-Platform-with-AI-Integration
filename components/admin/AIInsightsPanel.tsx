@@ -107,18 +107,25 @@ export default function AIInsightsPanel() {
           <AiBadge variant="chip" label="AI-assisted" />
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3 max-h-[320px] overflow-y-auto">
           {suggestions.map((suggestion) => (
-            <div key={suggestion.id} className="flex items-center justify-between p-3 bg-black/40 rounded-lg">
-              <div>
-                <p className="text-xs font-bold">{suggestion.name}</p>
-                <p className="text-[10px] text-zinc-500">Suggested Priority: {suggestion.priority}</p>
+            <div key={suggestion.id} className="flex items-start justify-between gap-3 p-3 bg-black/40 rounded-lg">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="text-xs font-bold">{suggestion.name}</p>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                    suggestion.priority === "High" ? "bg-red-500/20 text-red-400" :
+                    suggestion.priority === "Medium" ? "bg-amber-500/20 text-amber-400" :
+                    "bg-zinc-500/20 text-zinc-400"
+                  }`}>{suggestion.priority}</span>
+                </div>
+                <p className="text-[10px] text-zinc-500 line-clamp-2">{suggestion.description}</p>
               </div>
               <button
                 onClick={() => handleInitializeTrack(suggestion.name)}
-                className="text-zinc-600 hover:text-primary transition-colors"
+                className="text-zinc-600 hover:text-primary transition-colors shrink-0 mt-1"
               >
-                <span className="material-symbols-outlined">add_circle</span>
+                <span className="material-symbols-outlined text-[20px]">add_circle</span>
               </button>
             </div>
           ))}

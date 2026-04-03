@@ -131,10 +131,12 @@ export default function AdminTopNav({ activePage = "overview" }: AdminTopNavProp
           <span className="material-symbols-outlined text-[16px]">logout</span>
           Logout
         </button>
-        <span className="material-symbols-outlined text-zinc-500 hover:text-blue-300 cursor-pointer text-[20px]">sensors</span>
+        <Link href="/admin/analytics" className="text-zinc-500 hover:text-blue-300 transition-colors">
+          <span className="material-symbols-outlined cursor-pointer text-[20px]">sensors</span>
+        </Link>
         <div
           className="relative"
-          onMouseEnter={() => setShowNotifications(true)}
+          onMouseEnter={() => { setShowNotifications(true); setActivityCount(0); }}
           onMouseLeave={() => setShowNotifications(false)}
         >
           <button className="relative text-zinc-500 hover:text-blue-300 transition-colors">
@@ -231,7 +233,9 @@ export default function AdminTopNav({ activePage = "overview" }: AdminTopNavProp
             </div>
           )}
         </div>
-        <span className="material-symbols-outlined text-zinc-500 hover:text-blue-300 cursor-pointer text-[20px]">settings</span>
+        <Link href="/admin/settings" className="text-zinc-500 hover:text-blue-300 transition-colors">
+          <span className="material-symbols-outlined cursor-pointer text-[20px]">settings</span>
+        </Link>
         <div className="relative">
           <button
             onClick={() => setShowDropdown(!showDropdown)}
