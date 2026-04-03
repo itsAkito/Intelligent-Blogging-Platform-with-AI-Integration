@@ -309,6 +309,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       posts: orderedPosts,
+      total,
       warning: categoryFilterUnavailable
         ? 'Category filtering is unavailable on this database schema yet.'
         : undefined,
@@ -344,6 +345,23 @@ export async function POST(request: NextRequest) {
 
     const isAiGenerated = ai_generated || aiGenerated || false;
 
+    // Check if the creator is an admin — admin posts skip moderation
+    const isAdminSession = hasAdminSessionCookie(request);
+    let isAdminCreator = isAdminSession;
+    if (!isAdminCreator) {
+      const { data: creatorProfile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
+      isAdminCreator = creatorProfile?.role === 'admin';
+    }
+
+    const resolvedStatus = published ? 'published' : (status || 'draft');
+    const resolvedApproval = isAdminCreator
+      ? (resolvedStatus === 'published' ? 'approved' : 'pending')
+      : 'pending';
+
     const slug = title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
@@ -359,8 +377,8 @@ export async function POST(request: NextRequest) {
         excerpt: excerpt || content.substring(0, 160),
         cover_image_url: cover_image_url || image_url || null,
         slug,
-        status: published ? 'published' : (status || 'draft'),
-        approval_status: 'pending',
+        status: resolvedStatus,
+        approval_status: resolvedApproval,
         ai_generated: isAiGenerated,
         topic: topic || null,
         category: category || null,
@@ -379,7 +397,8 @@ export async function POST(request: NextRequest) {
           excerpt: excerpt || content.substring(0, 160),
           cover_image_url: cover_image_url || image_url || null,
           slug,
-          status: published ? 'published' : (status || 'draft'),
+          status: resolvedStatus,
+          approval_status: resolvedApproval,
           ai_generated: isAiGenerated,
           topic: topic || null,
         }])

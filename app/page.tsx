@@ -109,7 +109,8 @@ export default function Home() {
           const posts = data.posts || data || [];
           setFeaturedPosts(posts);
           // Grab total count if returned
-          if (data.total != null) setTotalPostCount(data.total);
+          const total = data.total ?? data.pagination?.total ?? null;
+          if (total != null) setTotalPostCount(total);
         }
       } catch (err) {
         console.error("Failed to fetch featured posts:", err);

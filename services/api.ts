@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_APP_URL || '';
 
 class APIService {
   private async request(path: string, options: RequestInit = {}) {
