@@ -232,6 +232,7 @@ export default function AdminPostsPage() {
             </Link>
             <button
               onClick={fetchPosts}
+              suppressHydrationWarning
               className="inline-flex items-center gap-2 rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-white hover:bg-white/5"
             >
               <span className="material-symbols-outlined text-sm">refresh</span>
@@ -271,6 +272,7 @@ export default function AdminPostsPage() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search by title, excerpt, topic, or category"
+            suppressHydrationWarning
             className="h-11 flex-1 rounded-lg border border-white/10 bg-surface-container px-4 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary/40"
           />
           <div className="flex gap-2 overflow-x-auto">
@@ -278,6 +280,7 @@ export default function AdminPostsPage() {
               <button
                 key={filter}
                 onClick={() => setStatus(filter)}
+                suppressHydrationWarning
                 className={`rounded-lg px-4 py-2 text-xs font-bold uppercase tracking-wider ${
                   status === filter
                     ? "bg-primary text-on-primary"
@@ -346,6 +349,7 @@ export default function AdminPostsPage() {
                     </Link>
                     <button
                       onClick={() => openEditForm(post)}
+                      suppressHydrationWarning
                       className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/10"
                     >
                       <span className="material-symbols-outlined text-sm">edit</span>
@@ -355,6 +359,7 @@ export default function AdminPostsPage() {
                       <button
                         onClick={() => quickStatusUpdate(post, "draft")}
                         disabled={savingId === post.id}
+                        suppressHydrationWarning
                         className="inline-flex items-center gap-1 rounded-lg border border-orange-500/30 px-3 py-2 text-xs font-semibold text-orange-300 hover:bg-orange-500/10 disabled:opacity-60"
                       >
                         <span className="material-symbols-outlined text-sm">unpublished</span>
@@ -364,6 +369,7 @@ export default function AdminPostsPage() {
                       <button
                         onClick={() => quickStatusUpdate(post, "published")}
                         disabled={savingId === post.id}
+                        suppressHydrationWarning
                         className="inline-flex items-center gap-1 rounded-lg border border-green-500/30 px-3 py-2 text-xs font-semibold text-green-300 hover:bg-green-500/10 disabled:opacity-60"
                       >
                         <span className="material-symbols-outlined text-sm">publish</span>
@@ -373,6 +379,7 @@ export default function AdminPostsPage() {
                     <button
                       onClick={() => handleDelete(post)}
                       disabled={deletingId === post.id}
+                      suppressHydrationWarning
                       className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-semibold text-red-300 hover:bg-red-500/10 disabled:opacity-60"
                     >
                       <span className="material-symbols-outlined text-sm">delete</span>
@@ -389,6 +396,7 @@ export default function AdminPostsPage() {
                         <input
                           value={editForm.title}
                           onChange={(event) => setEditForm((current) => ({ ...current, title: event.target.value }))}
+                          suppressHydrationWarning
                           className="h-11 w-full rounded-lg border border-white/10 bg-surface-container px-4 text-sm text-white outline-none focus:ring-2 focus:ring-primary/40"
                         />
                       </label>
@@ -413,6 +421,7 @@ export default function AdminPostsPage() {
                         <input
                           value={editForm.topic}
                           onChange={(event) => setEditForm((current) => ({ ...current, topic: event.target.value }))}
+                          suppressHydrationWarning
                           className="h-11 w-full rounded-lg border border-white/10 bg-surface-container px-4 text-sm text-white outline-none focus:ring-2 focus:ring-primary/40"
                         />
                       </label>
@@ -422,6 +431,7 @@ export default function AdminPostsPage() {
                         <input
                           value={editForm.category}
                           onChange={(event) => setEditForm((current) => ({ ...current, category: event.target.value }))}
+                          suppressHydrationWarning
                           className="h-11 w-full rounded-lg border border-white/10 bg-surface-container px-4 text-sm text-white outline-none focus:ring-2 focus:ring-primary/40"
                         />
                       </label>
@@ -440,6 +450,7 @@ export default function AdminPostsPage() {
                     <div className="mt-4 flex flex-wrap justify-end gap-2">
                       <button
                         onClick={closeEditForm}
+                        suppressHydrationWarning
                         className="rounded-lg border border-white/10 px-4 py-2 text-sm font-semibold text-zinc-300 hover:bg-white/5"
                       >
                         Cancel
@@ -447,6 +458,7 @@ export default function AdminPostsPage() {
                       <button
                         onClick={() => savePostUpdates(post.id)}
                         disabled={savingId === post.id}
+                        suppressHydrationWarning
                         className="rounded-lg bg-linear-to-r from-primary to-primary-container px-4 py-2 text-sm font-bold text-on-primary-fixed disabled:opacity-60"
                       >
                         {savingId === post.id ? "Saving..." : "Save Changes"}

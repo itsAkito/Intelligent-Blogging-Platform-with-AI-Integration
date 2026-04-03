@@ -126,6 +126,7 @@ export default function AdminTopNav({ activePage = "overview" }: AdminTopNavProp
         </Link>
         <button
           onClick={handleLogout}
+          suppressHydrationWarning
           className="hidden md:flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-1.5 text-xs font-semibold text-red-400 hover:bg-red-500/10 transition-colors"
         >
           <span className="material-symbols-outlined text-[16px]">logout</span>
@@ -139,7 +140,7 @@ export default function AdminTopNav({ activePage = "overview" }: AdminTopNavProp
           onMouseEnter={() => { setShowNotifications(true); setActivityCount(0); }}
           onMouseLeave={() => setShowNotifications(false)}
         >
-          <button className="relative text-zinc-500 hover:text-blue-300 transition-colors">
+          <button suppressHydrationWarning className="relative text-zinc-500 hover:text-blue-300 transition-colors">
             <span className="material-symbols-outlined cursor-pointer text-[20px]">notifications</span>
             {activityCount > 0 && (
               <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
@@ -239,6 +240,7 @@ export default function AdminTopNav({ activePage = "overview" }: AdminTopNavProp
         <div className="relative">
           <button
             onClick={() => setShowDropdown(!showDropdown)}
+            suppressHydrationWarning
             className="w-8 h-8 rounded-full bg-surface-container-high border border-outline-variant/20 overflow-hidden hover:border-blue-400 transition-colors"
           >
             <Image
@@ -253,6 +255,7 @@ export default function AdminTopNav({ activePage = "overview" }: AdminTopNavProp
             <div className="absolute right-0 mt-2 w-48 bg-[#1a1a1a] border border-outline-variant/20 rounded-lg shadow-xl z-50">
               <button
                 onClick={handleLogout}
+                suppressHydrationWarning
                 className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 transition-colors flex items-center gap-2"
               >
                 <span className="material-symbols-outlined text-[18px]">logout</span>
