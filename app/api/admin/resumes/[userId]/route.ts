@@ -1,0 +1,76 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { createClient } from '@/utils/supabase/server';
+
+async function verifyAdmin(request: NextRequest): Promise<string | null> {
+  try {
+    const { userId } = await auth();
+    if (userId) {
+      const supabase = await createClient();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      if (profile?.role === 'admin') return userId;
+    }
+  } catch {}
+
+  try {
+    const cookie = request.cookies.get('admin_session_token')?.value;
+    if (cookie) {
+      const decoded = JSON.parse(Buffer.from(cookie, 'base64').toString());
+      const adminEmail = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+      if (decoded.email && adminEmail && decoded.email === adminEmail) {
+        return decoded.email;
+      }
+    }
+  } catch {}
+
+  return null;
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ userId: string }> }
+) {
+  const adminId = await verifyAdmin(request);
+  if (!adminId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { userId } = await params;
+  const supabase = await createClient();
+
+  // Get resume data
+  const { data: resume, error } = await supabase
+    .from('user_resumes')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Get user profile
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, avatar_url')
+    .eq('id', userId)
+    .single();
+
+  // Get exported files
+  const { data: files } = await supabase
+    .from('resume_files')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  return NextResponse.json({
+    resume: resume || null,
+    profile: profile || null,
+    files: files || [],
+  });
+}

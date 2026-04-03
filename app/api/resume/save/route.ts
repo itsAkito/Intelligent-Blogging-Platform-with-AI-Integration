@@ -121,6 +121,11 @@ export async function POST(request: NextRequest) {
         .upsert({
           user_id: userId,
           resume_data: resumeData,
+          template: resumeData?.template || 'classic',
+          color_theme: resumeData?.colorTheme || 'slate',
+          ats_score: resumeData?.atsScore || 0,
+          full_name: resumeData?.fullName || null,
+          target_role: resumeData?.targetRole || null,
           updated_at: new Date().toISOString(),
         }, {
           onConflict: 'user_id'
