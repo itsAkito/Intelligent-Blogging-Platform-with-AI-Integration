@@ -45,7 +45,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider appearance={{ baseTheme: dark }} afterSignOutUrl="/">
-      <html lang="en" className={`dark scroll-smooth ${inter.variable} ${manrope.variable}`}>
+      <html lang="en" data-scroll-behavior="smooth" className={`dark scroll-smooth ${inter.variable} ${manrope.variable}`}>
         <body className="font-body selection:bg-primary/30 overflow-x-hidden">
           <AuthProvider>
             <AppProvider>

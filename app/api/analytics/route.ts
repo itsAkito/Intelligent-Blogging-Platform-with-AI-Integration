@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { auth } from '@clerk/nextjs/server';
+import { verifyAdminSessionCookie } from '@/lib/admin-auth';
 
 // POST track an analytics event
 export async function POST(request: NextRequest) {
@@ -50,6 +51,14 @@ export async function GET(request: NextRequest) {
       const clerkAuth = await auth();
       userId = clerkAuth.userId || null;
     } catch {}
+    
+    // Fall back to admin session cookie
+    if (!userId) {
+      const adminEmail = verifyAdminSessionCookie(request);
+      if (adminEmail) {
+        userId = adminEmail;
+      }
+    }
     
     // Fall back to OTP session
     if (!userId) {
