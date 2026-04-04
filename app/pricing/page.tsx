@@ -117,8 +117,8 @@ function PricingPageContent() {
       planName: "Contributor",
       name: "The Contributor",
       description: "Perfect for starting the digital narrative.",
-      price: "$0",
-      annualPrice: "$0",
+      price: "₹0",
+      annualPrice: "₹0",
       period: "/MO",
       features: [
         "Basic AI assistance",
@@ -134,8 +134,8 @@ function PricingPageContent() {
       planName: "Professional",
       name: "The Professional",
       description: "For serious writers building a lasting brand.",
-      price: "₹2,499",
-      annualPrice: "₹22,499",
+      price: "₹299",
+      annualPrice: "₹999",
       period: "/MO",
       badge: "BEST FOR YOU",
       features: [
@@ -153,8 +153,8 @@ function PricingPageContent() {
       planName: "Elite",
       name: "The Thought Leader",
       description: "The ultimate ecosystem for industry authorities.",
-      price: "₹7,499",
-      annualPrice: "₹66,999",
+      price: "₹699",
+      annualPrice: "₹1,599",
       period: "/MO",
       features: [
         "Priority AI generation queue",
@@ -240,6 +240,12 @@ function PricingPageContent() {
 
         const orderData = await orderResponse.json();
         if (!orderResponse.ok) {
+          if (orderResponse.status === 503) {
+            throw new Error("Payment gateway is not configured yet. Please contact support.");
+          }
+          if (orderResponse.status === 404) {
+            throw new Error("Subscription plan not found. Please refresh the page and try again.");
+          }
           throw new Error(orderData.error || "Failed to create payment order.");
         }
 
