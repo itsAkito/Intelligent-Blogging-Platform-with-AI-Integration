@@ -92,7 +92,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Check for OTP-based login from database session
   const loadOtpUser = useCallback(async () => {
-    try {
+    // Only probe if the relevant cookies are present — avoids 401 noise for regular visitors
+    const hasOtpCookie = document.cookie.includes("otp_session_token=");
+    const hasAdminCookie = document.cookie.includes("admin_session_token=");
+
+    if (!hasOtpCookie && !hasAdminCookie) {
+      setLoading(false);
+      return false;
+    }
+
+    if (hasOtpCookie) try {
       const res = await fetch("/api/auth/otp/session", {
         method: "GET",
         credentials: "include",
@@ -117,11 +126,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return true;
       }
     } catch {
-      // Expected 401 when no OTP session exists — suppress console noise.
+      // Expected 401 when OTP session is invalid — suppress console noise.
     }
-    
+
     // Fallback for admin cookie session — probe the lightweight /api/admin/me endpoint.
-    try {
+    if (hasAdminCookie) try {
       const adminProbe = await fetch("/api/admin/me", {
         method: "GET",
         credentials: "include",
@@ -144,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Expected 401 when no admin session exists — suppress console noise.
     }
 
-    // If no OTP session found, just finish loading
+    // If no session found, just finish loading
     setLoading(false);
     return false;
   }, [isAdminRoute]);

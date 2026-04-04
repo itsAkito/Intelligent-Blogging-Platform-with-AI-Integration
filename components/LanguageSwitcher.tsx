@@ -43,6 +43,7 @@ export default function LanguageSwitcher() {
         aria-haspopup="listbox"
         aria-expanded={open}
         className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-muted transition-colors"
+        suppressHydrationWarning
       >
         <span className="text-base leading-none">🌐</span>
         <span>{LOCALE_LABELS[current]}</span>
