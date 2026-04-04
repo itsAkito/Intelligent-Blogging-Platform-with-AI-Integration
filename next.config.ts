@@ -61,8 +61,12 @@ export default withSentryConfig(withNextIntl(nextConfig), {
   sourcemaps: {
     disable: process.env.NODE_ENV !== 'production',
   },
-  // Automatically tree-shake Sentry logger
-  disableLogger: true,
+  // Automatically tree-shake Sentry logger statements
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
   // Tunnel Sentry events through your own domain to avoid ad-blockers
   tunnelRoute: '/monitoring',
 });

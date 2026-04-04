@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { createClient } from '@/utils/supabase/server';
 
+// Revalidate blog post pages every 60 seconds (ISR)
+export const revalidate = 60;
+
 type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

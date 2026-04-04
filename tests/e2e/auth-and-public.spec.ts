@@ -4,8 +4,6 @@ test.describe('Auth pages', () => {
   test('auth page loads login form', async ({ page }) => {
     await page.goto('/auth');
     await expect(page.locator('body')).toBeVisible();
-    // Should contain some form element (email input or similar)
-    const emailInput = page.locator('input[type="email"], input[name="email"]');
     // Not every auth page shows the form on initial load — just verify page isn't broken
     await expect(page.locator('body')).not.toBeEmpty();
   });

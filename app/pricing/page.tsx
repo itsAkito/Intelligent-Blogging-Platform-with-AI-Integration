@@ -134,8 +134,8 @@ function PricingPageContent() {
       planName: "Professional",
       name: "The Professional",
       description: "For serious writers building a lasting brand.",
-      price: "$29",
-      annualPrice: "$261",
+      price: "₹2,499",
+      annualPrice: "₹22,499",
       period: "/MO",
       badge: "BEST FOR YOU",
       features: [
@@ -153,8 +153,8 @@ function PricingPageContent() {
       planName: "Elite",
       name: "The Thought Leader",
       description: "The ultimate ecosystem for industry authorities.",
-      price: "$89",
-      annualPrice: "$801",
+      price: "₹7,499",
+      annualPrice: "₹66,999",
       period: "/MO",
       features: [
         "Priority AI generation queue",
@@ -168,18 +168,22 @@ function PricingPageContent() {
     },
   ], []);
 
+  const formatINR = (amount: number) =>
+    amount === 0 ? '₹0' : `₹${amount.toLocaleString('en-IN')}`;
+
   const tiersWithPlanIds = useMemo(() => (
     tiers.map((tier) => {
       const matchedPlan = plans.find((plan) => plan.name.toLowerCase() === tier.planName.toLowerCase());
       return {
         ...tier,
         planId: matchedPlan?.id,
-        price: matchedPlan ? `$${matchedPlan.price_monthly}` : tier.price,
-        annualPrice: matchedPlan ? `$${matchedPlan.price_annual}` : tier.annualPrice,
+        priceNumeric: matchedPlan ? Number(matchedPlan.price_monthly) : 0,
+        price: matchedPlan ? formatINR(Number(matchedPlan.price_monthly)) : tier.price,
+        annualPrice: matchedPlan ? formatINR(Number(matchedPlan.price_annual)) : tier.annualPrice,
         features: matchedPlan?.features?.length ? matchedPlan.features : tier.features,
       };
     })
-  ), [plans, tiers]);
+  ), [plans, tiers]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePlanAction = async (tierId: number) => {
     const tier = tiersWithPlanIds.find((item) => item.id === tierId);
@@ -215,7 +219,7 @@ function PricingPageContent() {
     try {
       setActionLoading(tierId);
 
-      const isPaidPlan = Number((tier.price || "$0").replace("$", "")) > 0;
+      const isPaidPlan = (tier.priceNumeric ?? 0) > 0;
 
       let paymentPayload: Record<string, any> = {};
       if (isPaidPlan) {
@@ -278,7 +282,13 @@ function PricingPageContent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(paymentResult),
+          body: JSON.stringify({
+            ...paymentResult,
+            userId: undefined, // resolved server-side from session
+            planId: tier.planId,
+            amount: orderData.amount,
+            currency: 'INR',
+          }),
         });
 
         const verifyData = await verifyResponse.json();
@@ -339,7 +349,7 @@ function PricingPageContent() {
           </p>
 
           <p className="text-xs text-on-surface-variant/80 mb-4">
-            Payment methods: Razorpay (UPI, cards, netbanking) for paid plans.
+            All prices in INR (₹) &mdash; Pay via UPI, Cards, Net Banking & more with Razorpay.
           </p>
 
           {/* Billing Toggle */}

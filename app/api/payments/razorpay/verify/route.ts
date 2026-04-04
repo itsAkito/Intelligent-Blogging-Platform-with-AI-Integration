@@ -1,14 +1,41 @@
 import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { auth } from '@clerk/nextjs/server';
+
+async function resolveAuthenticatedUserId(request: NextRequest): Promise<string | null> {
+  try {
+    const clerkAuth = await auth();
+    if (clerkAuth.userId) return clerkAuth.userId;
+  } catch { /* continue */ }
+
+  const supabase = await createClient();
+  const otpToken = request.cookies.get('otp_session_token')?.value;
+  if (!otpToken) return null;
+
+  const { data: session } = await supabase
+    .from('otp_sessions')
+    .select('user_id, expires_at, is_active')
+    .eq('session_token', otpToken)
+    .maybeSingle();
+
+  if (!session?.is_active || new Date(session.expires_at) <= new Date()) return null;
+  return session.user_id as string;
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { orderId, paymentId, signature, userId, planId, amount, currency = 'INR' } = body;
+    const { orderId, paymentId, signature, planId, amount, currency = 'INR' } = body;
 
     if (!orderId || !paymentId || !signature) {
       return NextResponse.json({ error: 'orderId, paymentId and signature are required' }, { status: 400 });
+    }
+
+    // Resolve userId server-side — never trust client-supplied userId
+    const userId = await resolveAuthenticatedUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const secret = process.env.RAZORPAY_KEY_SECRET;
@@ -16,10 +43,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Razorpay is not configured' }, { status: 503 });
     }
 
-    // ── Idempotency check ───────────────────────────────────────────────────
-    // Return success immediately if this orderId was already verified.
-    // This prevents double-processing on retries or network replays.
     const supabase = await createClient();
+
+    // ── Idempotency check ───────────────────────────────────────────────────
     const { data: existing } = await supabase
       .from('processed_payments')
       .select('order_id, payment_id, verified_at')
@@ -35,32 +61,41 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // ── Signature verification ───────────────────────────────────────────────
+    // ── Signature verification (constant-time) ──────────────────────────────
     const expectedSignature = crypto
       .createHmac('sha256', secret)
       .update(`${orderId}|${paymentId}`)
       .digest('hex');
 
-    // Constant-time comparison to prevent timing attacks
-    const sigBuffer = Buffer.from(signature, 'hex');
-    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
-    const isValid =
-      sigBuffer.length === expectedBuffer.length &&
-      crypto.timingSafeEqual(sigBuffer, expectedBuffer);
+    let isValid = false;
+    try {
+      const sigBuffer = Buffer.from(signature, 'hex');
+      const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+      isValid =
+        sigBuffer.length === expectedBuffer.length &&
+        crypto.timingSafeEqual(sigBuffer, expectedBuffer);
+    } catch {
+      isValid = false;
+    }
 
     if (!isValid) {
       return NextResponse.json({ valid: false, error: 'Invalid payment signature' }, { status: 400 });
     }
 
-    // ── Record the verified payment (idempotency store) ───────────────────────
-    await supabase.from('processed_payments').insert({
+    // ── Record verified payment (idempotency store) ─────────────────────────
+    const { error: insertError } = await supabase.from('processed_payments').insert({
       order_id: orderId,
       payment_id: paymentId,
-      user_id: userId ?? null,
-      amount: amount ?? null,
+      user_id: userId,
+      amount: typeof amount === 'number' ? amount : null,
       currency,
-      plan_id: planId ?? null,
+      plan_id: typeof planId === 'string' ? planId : null,
     });
+
+    if (insertError) {
+      console.error('Razorpay verify: failed to record payment:', insertError.message);
+      // Don't fail the user — payment is valid; record failure is non-fatal
+    }
 
     return NextResponse.json({ valid: true, idempotent: false });
   } catch (error) {

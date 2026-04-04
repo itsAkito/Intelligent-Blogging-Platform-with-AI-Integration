@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@/utils/supabase/server';
 import { logActivity } from '@/lib/activity-log';
 import { logAdminAction } from '@/lib/admin-audit';
+import { sendPublishAnnouncementEmail } from '@/lib/mailer';
 
 function isMissingColumnError(error: unknown, column: string): boolean {
   const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
@@ -168,6 +169,7 @@ export async function PATCH(
     const nextTopic = typeof body.topic === 'string' ? body.topic.trim() : undefined;
     const nextCategory = typeof body.category === 'string' ? body.category.trim() : undefined;
     const nextStatus = typeof body.status === 'string' ? body.status.trim() : undefined;
+    const nextScheduledFor = typeof body.scheduled_for === 'string' ? body.scheduled_for.trim() : undefined;
 
     if (nextTitle) {
       updateData.title = nextTitle;
@@ -182,8 +184,16 @@ export async function PATCH(
     if (typeof body.category === 'string') {
       updateData.category = nextCategory || null;
     }
-    if (nextStatus && ['published', 'draft', 'archived', 'pending'].includes(nextStatus)) {
+    if (nextStatus && ['published', 'draft', 'archived', 'pending', 'scheduled'].includes(nextStatus)) {
       updateData.status = nextStatus;
+    }
+    if (nextScheduledFor) {
+      const parsedDate = new Date(nextScheduledFor);
+      if (!isNaN(parsedDate.getTime())) {
+        updateData.scheduled_for = parsedDate.toISOString();
+      }
+    } else if (body.scheduled_for === null || body.scheduled_for === '') {
+      updateData.scheduled_for = null;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -194,6 +204,10 @@ export async function PATCH(
       updateData.approval_status = 'approved';
       updateData.approved_by = adminUserId;
       updateData.approved_at = new Date().toISOString();
+      updateData.published_at = new Date().toISOString();
+      updateData.scheduled_for = null;
+    } else if (updateData.status === 'scheduled') {
+      updateData.approval_status = 'pending';
     } else if (updateData.status === 'draft' || updateData.status === 'archived' || updateData.status === 'pending') {
       updateData.approval_status = updateData.status === 'pending' ? 'pending' : 'reverted';
     }
@@ -264,6 +278,36 @@ export async function PATCH(
         updatedFields: Object.keys(updateData),
       },
     });
+
+    // Fire-and-forget newsletter announcement when post is newly published
+    if (updateData.status === 'published' && existingPost.status !== 'published') {
+      (async () => {
+        try {
+          const { data: subscribers } = await supabase
+            .from('newsletter_subscribers')
+            .select('email, name');
+
+          if (subscribers && subscribers.length > 0) {
+            await Promise.allSettled(
+              subscribers.map((s) =>
+                sendPublishAnnouncementEmail({
+                  to: s.email,
+                  subscriberName: s.name ?? undefined,
+                  postTitle: result.data.title,
+                  postExcerpt: result.data.excerpt ?? undefined,
+                  postSlug: result.data.slug,
+                  authorName: result.data.profiles && !Array.isArray(result.data.profiles)
+                    ? (result.data.profiles as { name?: string }).name ?? 'AiBlog Editorial'
+                    : 'AiBlog Editorial',
+                })
+              )
+            );
+          }
+        } catch (mailErr) {
+          console.error('[admin/posts PATCH] newsletter send error:', mailErr);
+        }
+      })();
+    }
 
     return NextResponse.json({
       success: true,

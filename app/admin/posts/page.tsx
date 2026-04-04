@@ -26,8 +26,8 @@ type AdminPost = {
   } | null;
 };
 
-const STATUS_FILTERS = ["all", "published", "draft", "archived", "pending"] as const;
-const EDITABLE_STATUSES = ["published", "draft", "archived", "pending"] as const;
+const STATUS_FILTERS = ["all", "published", "draft", "archived", "pending", "scheduled"] as const;
+const EDITABLE_STATUSES = ["published", "draft", "archived", "pending", "scheduled"] as const;
 
 type EditFormState = {
   title: string;
@@ -35,6 +35,7 @@ type EditFormState = {
   topic: string;
   category: string;
   status: (typeof EDITABLE_STATUSES)[number];
+  scheduled_for: string;
 };
 
 export default function AdminPostsPage() {
@@ -48,12 +49,15 @@ export default function AdminPostsPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<EditFormState>({
     title: "",
     excerpt: "",
     topic: "",
     category: "",
     status: "draft",
+    scheduled_for: "",
   });
 
   useEffect(() => {
@@ -110,7 +114,43 @@ export default function AdminPostsPage() {
       status: (EDITABLE_STATUSES.includes((post.status || "draft") as (typeof EDITABLE_STATUSES)[number])
         ? (post.status || "draft")
         : "draft") as (typeof EDITABLE_STATUSES)[number],
+      scheduled_for: "",
     });
+  };
+
+  const handleDuplicate = async (post: AdminPost) => {
+    try {
+      setDuplicatingId(post.id);
+      setError("");
+      const response = await fetch(`/api/admin/posts/${post.id}/duplicate`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to duplicate post");
+      setPosts((current) => [{ ...data.post, profiles: post.profiles }, ...current]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to duplicate post");
+    } finally {
+      setDuplicatingId(null);
+    }
+  };
+
+  const handlePreview = async (post: AdminPost) => {
+    try {
+      setPreviewLoadingId(post.id);
+      const response = await fetch(`/api/admin/posts/${post.id}/preview-token`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to generate preview");
+      window.open(data.previewUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to generate preview");
+    } finally {
+      setPreviewLoadingId(null);
+    }
   };
 
   const closeEditForm = () => {
@@ -127,9 +167,13 @@ export default function AdminPostsPage() {
       setSavingId(postId);
       setError("");
 
-      const payload = {
-        ...editForm,
+      const payload: Record<string, string | null> = {
+        title: editForm.title,
+        excerpt: editForm.excerpt,
+        topic: editForm.topic,
+        category: editForm.category,
         status: partialStatus || editForm.status,
+        scheduled_for: editForm.scheduled_for || null,
       };
 
       const response = await fetch(`/api/admin/posts/${postId}`, {
@@ -164,6 +208,7 @@ export default function AdminPostsPage() {
       topic: post.topic || "",
       category: post.category || "",
       status: nextStatus,
+      scheduled_for: "",
     });
     await savePostUpdates(post.id, nextStatus);
   };
@@ -340,6 +385,17 @@ export default function AdminPostsPage() {
                         View
                       </Link>
                     )}
+                    {post.status !== "published" && (
+                      <button
+                        onClick={() => handlePreview(post)}
+                        disabled={previewLoadingId === post.id}
+                        suppressHydrationWarning
+                        className="inline-flex items-center gap-1 rounded-lg border border-purple-500/30 px-3 py-2 text-xs font-semibold text-purple-300 hover:bg-purple-500/10 disabled:opacity-60"
+                      >
+                        <span className="material-symbols-outlined text-sm">preview</span>
+                        {previewLoadingId === post.id ? "…" : "Preview"}
+                      </button>
+                    )}
                     <Link
                       href={`/admin/moderation?tab=posts&postId=${encodeURIComponent(post.id)}`}
                       className="inline-flex items-center gap-1 rounded-lg border border-yellow-500/30 px-3 py-2 text-xs font-semibold text-yellow-300 hover:bg-yellow-500/10"
@@ -354,6 +410,15 @@ export default function AdminPostsPage() {
                     >
                       <span className="material-symbols-outlined text-sm">edit</span>
                       Edit
+                    </button>
+                    <button
+                      onClick={() => handleDuplicate(post)}
+                      disabled={duplicatingId === post.id}
+                      suppressHydrationWarning
+                      className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 px-3 py-2 text-xs font-semibold text-cyan-300 hover:bg-cyan-500/10 disabled:opacity-60"
+                    >
+                      <span className="material-symbols-outlined text-sm">content_copy</span>
+                      {duplicatingId === post.id ? "Copying…" : "Duplicate"}
                     </button>
                     {post.status === "published" ? (
                       <button
@@ -435,6 +500,21 @@ export default function AdminPostsPage() {
                           className="h-11 w-full rounded-lg border border-white/10 bg-surface-container px-4 text-sm text-white outline-none focus:ring-2 focus:ring-primary/40"
                         />
                       </label>
+
+                      {editForm.status === "scheduled" && (
+                        <label className="block text-sm text-zinc-300 lg:col-span-2">
+                          <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-zinc-500">Schedule Publish Date &amp; Time</span>
+                          <input
+                            type="datetime-local"
+                            value={editForm.scheduled_for}
+                            onChange={(event) => setEditForm((current) => ({ ...current, scheduled_for: event.target.value }))}
+                            suppressHydrationWarning
+                            min={new Date().toISOString().slice(0, 16)}
+                            className="h-11 w-full rounded-lg border border-white/10 bg-surface-container px-4 text-sm text-white outline-none focus:ring-2 focus:ring-primary/40"
+                          />
+                          <p className="mt-1 text-[11px] text-zinc-500">The post will automatically publish at this time via the cron job.</p>
+                        </label>
+                      )}
                     </div>
 
                     <label className="mt-4 block text-sm text-zinc-300">

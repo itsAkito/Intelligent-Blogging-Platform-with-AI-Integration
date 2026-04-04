@@ -87,3 +87,47 @@ export async function sendCollaborationInviteEmail(input: {
 }
 
 export { transporter };
+
+export async function sendPublishAnnouncementEmail(input: {
+  to: string;
+  subscriberName?: string;
+  postTitle: string;
+  postExcerpt?: string;
+  postSlug: string;
+  coverImageUrl?: string;
+  authorName: string;
+}) {
+  const { to, subscriberName, postTitle, postExcerpt, postSlug, coverImageUrl, authorName } = input;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://aiblog.dev';
+  const postUrl = `${appUrl}/blog/${postSlug}`;
+  const displayName = subscriberName || 'Reader';
+
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM || `AiBlog <${process.env.SMTP_USER}>`,
+    to,
+    subject: `New post: ${postTitle}`,
+    html: `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px; color: #e0e0e0; background: #121212;">
+        <div style="text-align: center; margin-bottom: 32px;">
+          <h1 style="font-size: 28px; font-weight: 800; color: #ffffff; margin: 0;">AiBlog</h1>
+          <p style="font-size: 11px; text-transform: uppercase; letter-spacing: 3px; color: #888; margin-top: 4px;">New Article</p>
+        </div>
+        <p style="font-size: 15px; line-height: 1.7; color: #b0b0b0;">Hi ${displayName},</p>
+        ${coverImageUrl ? `<img src="${coverImageUrl}" alt="${postTitle}" style="width:100%;border-radius:12px;margin-bottom:24px;" />` : ''}
+        <h2 style="font-size: 22px; font-weight: 700; color: #ffffff; margin: 0 0 12px;">${postTitle}</h2>
+        <p style="font-size: 13px; color: #888; margin: 0 0 16px;">By ${authorName}</p>
+        ${postExcerpt ? `<p style="font-size: 15px; line-height: 1.7; color: #b0b0b0; margin-bottom: 24px;">${postExcerpt}</p>` : ''}
+        <div style="text-align: center; margin: 32px 0;">
+          <a href="${postUrl}" style="display: inline-block; padding: 14px 32px; background: #ffffff; color: #000000; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 14px;">
+            Read Article →
+          </a>
+        </div>
+        <hr style="border: none; border-top: 1px solid #333; margin: 32px 0;" />
+        <p style="font-size: 12px; color: #666; text-align: center;">
+          You're receiving this because you subscribed to AiBlog updates.<br />
+          <a href="${appUrl}" style="color: #aaa;">Unsubscribe</a>
+        </p>
+      </div>
+    `,
+  });
+}

@@ -12,6 +12,8 @@ export type AdminAction =
   | 'post.delete'
   | 'post.feature'
   | 'post.unfeature'
+  | 'post.duplicate'
+  | 'post.schedule'
   | 'comment.approve'
   | 'comment.reject'
   | 'comment.delete'
