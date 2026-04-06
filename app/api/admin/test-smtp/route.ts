@@ -1,5 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { auth } from '@clerk/nextjs/server';
+import { verifyAdminSessionCookie } from '@/lib/admin-auth';
+
+async function verifyAdmin(request: NextRequest): Promise<boolean> {
+  try {
+    const { userId } = await auth();
+    if (userId) {
+      const { createClient } = await import('@/utils/supabase/server');
+      const supabase = await createClient();
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle();
+      if (profile?.role === 'admin') return true;
+    }
+  } catch { /* fallback */ }
+  return !!verifyAdminSessionCookie(request);
+}
 
 /**
  * Test SMTP Configuration
@@ -12,6 +27,10 @@ import nodemailer from 'nodemailer';
 
 export async function POST(request: NextRequest) {
   try {
+    if (!await verifyAdmin(request)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { testEmail } = await request.json();
 
     if (!testEmail) {

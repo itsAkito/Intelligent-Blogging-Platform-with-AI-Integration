@@ -7,6 +7,7 @@ import Navbar from "@/components/NavBar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -17,6 +18,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { renderMarkdownBlocks } from "@/lib/markdown";
 import { BLOG_THEMES, BlogTheme, getThemeById, getThemeFromAny } from "@/lib/blog-themes";
 import { WRITING_TEMPLATES, getPrimaryToolbarButtons, getSecondaryToolbarButtons, getSlashCommands } from "./editor-config";
+
+const AdminSideNav = dynamic(() => import("@/components/AdminSideNav"), { ssr: false });
+const AdminTopNav = dynamic(() => import("@/components/AdminTopNav"), { ssr: false });
 
 type Collaborator = {
   id: string;
@@ -39,6 +43,7 @@ function EditorContent() {
   const searchParams = useSearchParams();
   const editId = searchParams.get("id");
   const themeParam = searchParams.get("theme") || searchParams.get("templateTheme");
+  const fromAdmin = searchParams.get("from") === "admin";
   const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -74,6 +79,14 @@ function EditorContent() {
   const [collabFeedback, setCollabFeedback] = useState("");
   const [themeNotification, setThemeNotification] = useState("");
   const contentRef = useRef<HTMLTextAreaElement>(null);
+
+  // AI Copilot state
+  const [copilotMessages, setCopilotMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [copilotInput, setCopilotInput] = useState("");
+  const [copilotLoading, setCopilotLoading] = useState(false);
+  const [copilotTab, setCopilotTab] = useState<"actions" | "chat" | "settings">("actions");
+  const [selectedText, setSelectedText] = useState("");
+  const copilotChatRef = useRef<HTMLDivElement>(null);
 
   const applyTemplate = (templateId: string) => {
     const template = WRITING_TEMPLATES.find((item) => item.id === templateId);
@@ -543,6 +556,105 @@ function EditorContent() {
     }
   };
 
+  // ── AI Copilot Handlers ──────────────────────────────────────────────────
+
+  const getSelectedText = useCallback(() => {
+    const textarea = contentRef.current;
+    if (!textarea) return "";
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    return start !== end ? content.substring(start, end) : "";
+  }, [content]);
+
+  // Track text selection in the editor
+  useEffect(() => {
+    const textarea = contentRef.current;
+    if (!textarea) return;
+    const handleSelect = () => setSelectedText(getSelectedText());
+    textarea.addEventListener("mouseup", handleSelect);
+    textarea.addEventListener("keyup", handleSelect);
+    return () => {
+      textarea.removeEventListener("mouseup", handleSelect);
+      textarea.removeEventListener("keyup", handleSelect);
+    };
+  }, [getSelectedText]);
+
+  const handleCopilotAction = async (action: string) => {
+    const textToProcess = selectedText || content;
+    if (!textToProcess.trim()) { setError("Write or select some text first"); return; }
+    setCopilotLoading(true);
+    setCopilotTab("chat");
+    const userMsg = selectedText
+      ? `[${action}] on selected text: "${selectedText.substring(0, 100)}${selectedText.length > 100 ? '...' : ''}"`
+      : `[${action}] on full content`;
+    setCopilotMessages((prev) => [...prev, { role: "user", text: userMsg }]);
+
+    try {
+      const response = await fetch("/api/ai/copilot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action,
+          text: textToProcess,
+          context: { fullContent: content, tone, title },
+        }),
+      });
+      if (!response.ok) throw new Error("Copilot request failed");
+      const data = await response.json();
+      setCopilotMessages((prev) => [...prev, { role: "assistant", text: data.result }]);
+
+      // For rewrite/expand/grammar/tone-adjust, offer to replace content
+      if (["rewrite", "expand", "grammar", "tone-adjust"].includes(action) && selectedText) {
+        // Auto-replace selected text
+        const textarea = contentRef.current;
+        if (textarea) {
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          const before = content.substring(0, start);
+          const after = content.substring(end);
+          // Extract only the text portion for grammar (before the --- separator)
+          const replacement = action === "grammar" ? data.result.split("---")[0].trim() : data.result;
+          setContent(before + replacement + after);
+          setSuccess(`${action} applied to selection`);
+          setTimeout(() => setSuccess(""), 3000);
+        }
+      }
+    } catch (err) {
+      setCopilotMessages((prev) => [...prev, { role: "assistant", text: "Sorry, something went wrong. Please try again." }]);
+    } finally {
+      setCopilotLoading(false);
+      setTimeout(() => copilotChatRef.current?.scrollTo({ top: copilotChatRef.current.scrollHeight, behavior: "smooth" }), 100);
+    }
+  };
+
+  const handleCopilotChat = async () => {
+    if (!copilotInput.trim()) return;
+    const msg = copilotInput.trim();
+    setCopilotInput("");
+    setCopilotLoading(true);
+    setCopilotMessages((prev) => [...prev, { role: "user", text: msg }]);
+
+    try {
+      const response = await fetch("/api/ai/copilot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "chat",
+          text: msg,
+          context: { fullContent: content, tone, title },
+        }),
+      });
+      if (!response.ok) throw new Error("Chat failed");
+      const data = await response.json();
+      setCopilotMessages((prev) => [...prev, { role: "assistant", text: data.result }]);
+    } catch {
+      setCopilotMessages((prev) => [...prev, { role: "assistant", text: "Sorry, I couldn't process that. Try again." }]);
+    } finally {
+      setCopilotLoading(false);
+      setTimeout(() => copilotChatRef.current?.scrollTo({ top: copilotChatRef.current.scrollHeight, behavior: "smooth" }), 100);
+    }
+  };
+
   const handlePublish = async () => {
     if (!user) { setError("You must be logged in."); return; }
     if (!title.trim() || !content.trim()) { setError("Title and content are required"); return; }
@@ -569,7 +681,7 @@ function EditorContent() {
       });
       if (!response.ok) throw new Error("Failed to publish");
       setSuccess(isEditing ? "Updated!" : "Published!");
-      setTimeout(() => router.push("/dashboard/posts"), 2000);
+      setTimeout(() => router.push(fromAdmin ? "/admin/posts" : "/dashboard/posts"), 2000);
     } catch (err) {
       setError(String(err));
     } finally {
@@ -706,7 +818,7 @@ function EditorContent() {
       if (response.ok) {
         const data = await response.json();
         if (isEditing === false && data.post?.id) {
-          router.replace(`/editor?id=${data.post.id}`);
+          router.replace(`/editor?id=${data.post.id}${fromAdmin ? "&from=admin" : ""}`);
         }
         setSaveStatus("saved");
         setSuccess("Draft saved");
@@ -716,7 +828,7 @@ function EditorContent() {
       setSaveStatus("unsaved");
       console.error("Auto-save failed:", err);
     }
-  }, [title, content, excerpt, topic, category, coverImageUrl, isAiGenerated, blogTheme, user, isEditing, editId, router]);
+  }, [title, content, excerpt, topic, category, coverImageUrl, isAiGenerated, blogTheme, user, isEditing, editId, router, fromAdmin]);
 
   useEffect(() => {
     const autoSaveTimer = setInterval(() => {
@@ -728,18 +840,25 @@ function EditorContent() {
 
   return (
     <ProtectedRoute>
-      <Navbar />
-      <div className="flex min-h-screen bg-[#1e1e1e] pt-16">
+      {fromAdmin ? (
+        <>
+          <AdminSideNav activePage="posts" />
+          <AdminTopNav activePage="posts" />
+        </>
+      ) : (
+        <Navbar />
+      )}
+      <div className={`flex min-h-screen bg-[#1e1e1e] ${fromAdmin ? "md:ml-64 pt-16" : "pt-16"}`}>
         {/* Main Editor */}
         <div className={`flex-1 flex flex-col ${showAISidebar ? "lg:mr-80" : ""} ${showPreview ? "lg:mr-96" : ""} transition-all`}>
 
           {/* WordPress-style top bar: back + title + publish buttons */}
-          <div className="sticky top-16 z-30 flex items-center justify-between gap-3 border-b border-white/10 bg-[#23282d] px-4 py-2.5">
+          <div className={`sticky ${fromAdmin ? "top-16" : "top-16"} z-30 flex items-center justify-between gap-3 border-b border-white/10 bg-[#23282d] px-4 py-2.5`}>
             <div className="flex items-center gap-2 min-w-0">
-              <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-8 w-8 text-zinc-300 hover:text-white hover:bg-white/10">
+              <Button variant="ghost" size="icon" onClick={() => fromAdmin ? router.push("/admin/posts") : router.back()} className="h-8 w-8 text-zinc-300 hover:text-white hover:bg-white/10">
                 <span className="material-symbols-outlined text-lg">arrow_back</span>
               </Button>
-              <span className="hidden text-sm font-medium text-zinc-400 sm:block">Add a New Post</span>
+              <span className="hidden text-sm font-medium text-zinc-400 sm:block">{fromAdmin ? "Admin — New Post" : "Add a New Post"}</span>
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {saveStatus === "saving" && (
@@ -1205,237 +1324,368 @@ function EditorContent() {
           </div>
         </div>
 
-        {/* AI Assistant Sidebar */}
+        {/* AI Copilot Sidebar */}
         {showAISidebar && (
           <aside className="hidden lg:flex fixed right-0 top-16 w-80 h-[calc(100vh-64px)] flex-col bg-[#23282d] border-l border-white/10 z-20">
-            <div className="p-6 border-b border-outline-variant/10">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                <h3 className="font-bold font-headline">AI Assistant</h3>
+            {/* Header */}
+            <div className="p-4 border-b border-white/10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
+                  <h3 className="font-bold font-headline text-sm">AI Copilot</h3>
+                </div>
+                {copilotMessages.length > 0 && (
+                  <button onClick={() => setCopilotMessages([])} className="text-[10px] text-zinc-500 hover:text-zinc-300">Clear</button>
+                )}
               </div>
-              <p className="text-xs text-on-surface-variant mt-1">Powered by Gemini</p>
+              {/* Tabs */}
+              <div className="flex gap-1 mt-3">
+                {(["actions", "chat", "settings"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setCopilotTab(tab)}
+                    className={`flex-1 text-[10px] font-bold uppercase tracking-wider py-1.5 rounded-md transition-all ${
+                      copilotTab === tab ? "bg-primary/20 text-primary" : "text-zinc-500 hover:text-zinc-300 hover:bg-white/5"
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Quick Actions */}
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Quick Actions</span>
-                <div className="mt-3 space-y-2">
-                  <Button
-                    variant="ghost"
-                    onClick={handleGenerateTitle}
-                    disabled={generatingAI}
-                    className="w-full justify-start gap-3 h-auto p-3"
-                  >
-                    <span className="material-symbols-outlined text-primary text-sm">title</span>
-                    Generate Title
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={handleSummarize}
-                    disabled={generatingAI}
-                    className="w-full justify-start gap-3 h-auto p-3"
-                  >
-                    <span className="material-symbols-outlined text-secondary text-sm">summarize</span>
-                    {generatingAI ? "Summarizing..." : "Summarize"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={handleCheckTone}
-                    disabled={generatingAI}
-                    className="w-full justify-start gap-3 h-auto p-3"
-                  >
-                    <span className="material-symbols-outlined text-tertiary text-sm">psychology</span>
-                    {generatingAI ? "Analyzing..." : "Check Tone"}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Blog Category */}
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Blog Category</span>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="mt-3 w-full px-3 py-2.5 rounded-lg bg-surface-container border border-outline-variant/20 text-sm text-on-surface outline-none focus:border-primary"
-                >
-                  <option value="Technology">Technology</option>
-                  <option value="Strategy">Strategy</option>
-                  <option value="Health">Health</option>
-                  <option value="Education">Education</option>
-                  <option value="Travel">Travel</option>
-                  <option value="Lifestyle">Lifestyle</option>
-                  <option value="Business">Business</option>
-                  <option value="Science">Science</option>
-                  <option value="Art & Culture">Art & Culture</option>
-                  <option value="Research">Research</option>
-                </select>
-              </div>
-
-              {/* Blog Theme Picker */}
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Blog Theme</span>
-                <p className="text-[10px] text-on-surface-variant mt-1 mb-3">Choose a visual style for your published post</p>
-                <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
-                  {availableThemes.map((theme) => (
-                    <button
-                      key={theme.id}
-                      onClick={() => { setBlogTheme(theme.id); setThemeNotification(`Applied "${theme.name}" theme`); setTimeout(() => setThemeNotification(""), 3000); }}
-                      className={`rounded-lg border p-2 text-left transition-all ${
-                        blogTheme === theme.id
-                          ? "border-primary bg-primary/10 ring-1 ring-primary/30"
-                          : "border-white/10 bg-white/3 hover:border-white/20 hover:bg-white/5"
-                      }`}
-                    >
-                      <div className="text-lg mb-1">{theme.previewImage}</div>
-                      <div className="text-[11px] font-semibold text-on-surface truncate">{theme.name}</div>
-                      <div className="text-[9px] text-on-surface-variant truncate">{theme.description}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Tone Analysis Result */}
-              {toneAnalysis && (
-                <Card className="bg-surface-container border-none">
-                  <CardContent className="p-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-bold">Tone Analysis</span>
-                      <button onClick={() => setToneAnalysis(null)} className="text-on-surface-variant">
-                        <span className="material-symbols-outlined text-sm">close</span>
-                      </button>
+            <div className="flex-1 overflow-y-auto">
+              {/* ── Actions Tab ── */}
+              {copilotTab === "actions" && (
+                <div className="p-4 space-y-5">
+                  {/* Selection indicator */}
+                  {selectedText && (
+                    <div className="bg-violet-500/10 border border-violet-500/20 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="material-symbols-outlined text-violet-400 text-sm">select_all</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-violet-400">Selected Text</span>
+                      </div>
+                      <p className="text-xs text-zinc-400 line-clamp-2">{selectedText.substring(0, 120)}{selectedText.length > 120 ? "..." : ""}</p>
                     </div>
-                    <p className="text-xs text-on-surface-variant">{toneAnalysis}</p>
-                  </CardContent>
-                </Card>
+                  )}
+
+                  {/* Copilot Quick Actions */}
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
+                      {selectedText ? "Apply to Selection" : "Content Actions"}
+                    </span>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {[
+                        { action: "rewrite", icon: "edit_note", label: "Rewrite", color: "text-blue-400" },
+                        { action: "expand", icon: "unfold_more", label: "Expand", color: "text-green-400" },
+                        { action: "summarize", icon: "compress", label: "Summarize", color: "text-amber-400" },
+                        { action: "grammar", icon: "spellcheck", label: "Grammar", color: "text-red-400" },
+                        { action: "seo", icon: "query_stats", label: "SEO Check", color: "text-cyan-400" },
+                        { action: "brainstorm", icon: "lightbulb", label: "Brainstorm", color: "text-yellow-400" },
+                      ].map((item) => (
+                        <button
+                          key={item.action}
+                          onClick={() => handleCopilotAction(item.action)}
+                          disabled={copilotLoading}
+                          className="flex items-center gap-2 p-2.5 rounded-lg bg-white/3 border border-white/5 hover:border-white/15 hover:bg-white/5 transition-all text-left disabled:opacity-50"
+                        >
+                          <span className={`material-symbols-outlined text-sm ${item.color}`}>{item.icon}</span>
+                          <span className="text-xs font-medium">{item.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Quick Actions (original) */}
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Quick Actions</span>
+                    <div className="mt-2 space-y-1.5">
+                      <Button variant="ghost" onClick={handleGenerateTitle} disabled={generatingAI} className="w-full justify-start gap-2 h-auto p-2.5 text-xs">
+                        <span className="material-symbols-outlined text-primary text-sm">title</span>
+                        Generate Title
+                      </Button>
+                      <Button variant="ghost" onClick={handleSummarize} disabled={generatingAI} className="w-full justify-start gap-2 h-auto p-2.5 text-xs">
+                        <span className="material-symbols-outlined text-secondary text-sm">summarize</span>
+                        {generatingAI ? "Summarizing..." : "Auto-Excerpt"}
+                      </Button>
+                      <Button variant="ghost" onClick={handleCheckTone} disabled={generatingAI} className="w-full justify-start gap-2 h-auto p-2.5 text-xs">
+                        <span className="material-symbols-outlined text-tertiary text-sm">psychology</span>
+                        {generatingAI ? "Analyzing..." : "Check Tone"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Tone Analysis Result */}
+                  {toneAnalysis && (
+                    <Card className="bg-surface-container border-none">
+                      <CardContent className="p-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-xs font-bold">Tone Analysis</span>
+                          <button onClick={() => setToneAnalysis(null)} className="text-on-surface-variant"><span className="material-symbols-outlined text-sm">close</span></button>
+                        </div>
+                        <p className="text-xs text-on-surface-variant">{toneAnalysis}</p>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Live Insights */}
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Live Insights</span>
+                    <div className="mt-2 space-y-2">
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/3">
+                        <span className="text-xs text-zinc-400">Readability</span>
+                        <Badge variant="outline" className="text-green-400 border-green-400/30 text-[10px] h-5">{wordCount > 100 ? "Good" : "Short"}</Badge>
+                      </div>
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/3">
+                        <span className="text-xs text-zinc-400">Word Count</span>
+                        <span className="text-xs font-mono text-zinc-300">{wordCount}</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/3">
+                        <span className="text-xs text-zinc-400">Read Time</span>
+                        <span className="text-xs font-mono text-zinc-300">{readTime} min</span>
+                      </div>
+                      <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/3">
+                        <span className="text-xs text-zinc-400">Engagement</span>
+                        <Badge variant="outline" className={`text-[10px] h-5 ${wordCount > 300 ? "text-primary border-primary/30" : "text-zinc-500 border-zinc-500/30"}`}>{wordCount > 300 ? "High" : "Low"}</Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
 
-              {/* Full Generation */}
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Generate Full Article</span>
-                <div className="mt-3 space-y-3">
-                  <Input
-                    value={topic}
-                    onChange={(e) => setTopic(e.target.value)}
-                    placeholder="Enter topic..."
-                    className="bg-surface-container border-outline-variant/20 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary"
-                  />
-                  <select
-                    value={tone}
-                    onChange={(e) => setTone(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-lg bg-surface-container border border-outline-variant/20 text-sm text-on-surface outline-none focus:border-primary"
-                  >
-                    <option value="professional">Professional</option>
-                    <option value="casual">Casual</option>
-                    <option value="academic">Academic</option>
-                    <option value="creative">Creative</option>
-                  </select>
-                  <Button
-                    onClick={handleGenerateWithAI}
-                    disabled={generatingAI}
-                    className="w-full bg-linear-to-r from-secondary to-tertiary text-white font-bold hover:scale-[1.02] transition-all"
-                  >
-                    {generatingAI ? "Generating..." : "Generate with AI"}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Cover Image Generation */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Cover Image</span>
-                  <button
-                    onClick={() => setUseAIImage(!useAIImage)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${useAIImage ? "bg-primary" : "bg-surface-container-highest"}`}
-                  >
-                    <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${useAIImage ? "translate-x-4" : "translate-x-0.5"}`} />
-                  </button>
-                </div>
-                <p className="text-[10px] text-on-surface-variant mb-3">
-                  {useAIImage ? "AI generates a cover image from your prompt" : "Upload an image from your device"}
-                </p>
-                <div className="space-y-3">
-                  {useAIImage ? (
-                    <>
-                      <Input
-                        value={imagePrompt}
-                        onChange={(e) => setImagePrompt(e.target.value)}
-                        placeholder="Image prompt (or uses title)..."
-                        className="bg-surface-container border-outline-variant/20 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary"
-                      />
-                      <Button
-                        onClick={handleGenerateImage}
-                        disabled={generatingImage}
-                        className="w-full bg-linear-to-r from-primary to-secondary text-white font-bold hover:scale-[1.02] transition-all"
-                      >
-                        <span className="material-symbols-outlined text-sm">auto_awesome</span>
-                        {generatingImage ? "Generating..." : "Generate with AI"}
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <label className="w-full py-3 border-2 border-dashed border-outline-variant/30 rounded-lg text-sm text-on-surface-variant flex items-center justify-center gap-2 cursor-pointer hover:border-primary/40 transition-colors">
-                        <span className="material-symbols-outlined text-sm">upload_file</span>
-                        {uploadingImage ? "Uploading..." : "Choose File"}
-                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploadingImage} />
-                      </label>
-                      <div className="text-[10px] text-on-surface-variant">Or paste a URL:</div>
-                      <Input
-                        value={coverImageUrl}
-                        onChange={(e) => setCoverImageUrl(e.target.value)}
-                        placeholder="https://..."
-                        className="bg-surface-container border-outline-variant/20 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary"
-                      />
-                    </>
-                  )}
-                  {coverImageUrl && (
-                    <div className="rounded-lg overflow-hidden border border-outline-variant/20">
-                      <div className="relative w-full h-32">
-                        <Image src={coverImageUrl} alt="Cover preview" fill className="object-cover" sizes="400px" />
+              {/* ── Chat Tab ── */}
+              {copilotTab === "chat" && (
+                <div className="flex flex-col h-full">
+                  <div ref={copilotChatRef} className="flex-1 overflow-y-auto p-4 space-y-3" style={{ maxHeight: "calc(100vh - 260px)" }}>
+                    {copilotMessages.length === 0 && (
+                      <div className="text-center py-10">
+                        <span className="material-symbols-outlined text-4xl text-zinc-600 mb-3 block">chat</span>
+                        <p className="text-sm text-zinc-500">Ask your AI copilot anything about your article.</p>
+                        <div className="mt-4 space-y-2">
+                          {["How can I improve my intro?", "Suggest a better headline", "What keywords should I target?"].map((q) => (
+                            <button
+                              key={q}
+                              onClick={() => { setCopilotInput(q); }}
+                              className="block w-full text-left text-xs text-zinc-400 hover:text-zinc-200 bg-white/3 hover:bg-white/5 rounded-lg px-3 py-2 transition-colors"
+                            >
+                              {q}
+                            </button>
+                          ))}
+                        </div>
                       </div>
+                    )}
+                    {copilotMessages.map((msg, i) => (
+                      <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[90%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
+                          msg.role === "user"
+                            ? "bg-primary/20 text-zinc-200"
+                            : "bg-white/5 text-zinc-300 border border-white/5"
+                        }`}>
+                          <pre className="whitespace-pre-wrap font-sans">{msg.text}</pre>
+                        </div>
+                      </div>
+                    ))}
+                    {copilotLoading && (
+                      <div className="flex justify-start">
+                        <div className="bg-white/5 rounded-xl px-4 py-2 border border-white/5">
+                          <div className="flex gap-1">
+                            <div className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "0ms" }}></div>
+                            <div className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "150ms" }}></div>
+                            <div className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: "300ms" }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Settings Tab ── */}
+              {copilotTab === "settings" && (
+                <div className="p-4 space-y-5">
+                  {/* Blog Category */}
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Blog Category</span>
+                    <select
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      className="mt-2 w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 text-sm text-on-surface outline-none focus:border-primary"
+                    >
+                      <option value="Technology">Technology</option>
+                      <option value="Artificial Intelligence">Artificial Intelligence</option>
+                      <option value="Web Development">Web Development</option>
+                      <option value="Data Science">Data Science</option>
+                      <option value="Cybersecurity">Cybersecurity</option>
+                      <option value="Science">Science</option>
+                      <option value="Research">Research</option>
+                      <option value="Health">Health</option>
+                      <option value="Education">Education</option>
+                      <option value="Business">Business</option>
+                      <option value="Strategy">Strategy</option>
+                      <option value="Finance">Finance</option>
+                      <option value="Art & Culture">Art &amp; Culture</option>
+                      <option value="Music & Entertainment">Music &amp; Entertainment</option>
+                      <option value="Travel">Travel</option>
+                      <option value="Food & Culinary">Food &amp; Culinary</option>
+                      <option value="Lifestyle">Lifestyle</option>
+                      <option value="Fashion">Fashion</option>
+                      <option value="Sports & Fitness">Sports &amp; Fitness</option>
+                      <option value="Gaming">Gaming</option>
+                      <option value="Photography">Photography</option>
+                      <option value="Architecture & Design">Architecture &amp; Design</option>
+                      <option value="Environment & Nature">Environment &amp; Nature</option>
+                      <option value="Real Estate">Real Estate</option>
+                      <option value="Automotive">Automotive</option>
+                      <option value="Career & Professional">Career &amp; Professional</option>
+                      <option value="Politics & Society">Politics &amp; Society</option>
+                      <option value="History">History</option>
+                      <option value="Psychology">Psychology</option>
+                      <option value="Philosophy">Philosophy</option>
+                      <option value="Personal Development">Personal Development</option>
+                      <option value="Productivity">Productivity</option>
+                      <option value="Parenting & Family">Parenting &amp; Family</option>
+                      <option value="DIY & Crafts">DIY &amp; Crafts</option>
+                      <option value="Pets & Animals">Pets &amp; Animals</option>
+                      <option value="Space & Astronomy">Space &amp; Astronomy</option>
+                      <option value="Blockchain & Crypto">Blockchain &amp; Crypto</option>
+                      <option value="Startups">Startups</option>
+                      <option value="Social Media">Social Media</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  {/* Blog Theme Picker */}
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Blog Theme</span>
+                    <p className="text-[10px] text-on-surface-variant mt-1 mb-2">Visual style for your published post</p>
+                    <div className="grid grid-cols-2 gap-2 max-h-52 overflow-y-auto pr-1">
+                      {availableThemes.map((theme) => (
+                        <button
+                          key={theme.id}
+                          onClick={() => { setBlogTheme(theme.id); setThemeNotification(`Applied "${theme.name}" theme`); setTimeout(() => setThemeNotification(""), 3000); }}
+                          className={`rounded-lg border p-2 text-left transition-all ${
+                            blogTheme === theme.id
+                              ? "border-primary bg-primary/10 ring-1 ring-primary/30"
+                              : "border-white/10 bg-white/3 hover:border-white/20 hover:bg-white/5"
+                          }`}
+                        >
+                          <div className="text-lg mb-1">{theme.previewImage}</div>
+                          <div className="text-[11px] font-semibold text-on-surface truncate">{theme.name}</div>
+                          <div className="text-[9px] text-on-surface-variant truncate">{theme.description}</div>
+                        </button>
+                      ))}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
 
-              {/* Live Insights */}
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Live Insights</span>
-                <div className="mt-3 space-y-3">
-                  <Card className="bg-surface-container border-none">
-                    <CardContent className="p-3 space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-on-surface-variant">Readability</span>
-                        <Badge variant="outline" className="text-green-400 border-green-400/30 text-[10px] h-5">Good</Badge>
-                      </div>
-                      <div className="w-full h-1 bg-surface-container-highest rounded-full">
-                        <div className="h-full bg-green-400 rounded-full" style={{ width: "78%" }}></div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-surface-container border-none">
-                    <CardContent className="p-3 space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-on-surface-variant">SEO Score</span>
-                        <Badge variant="outline" className="text-yellow-400 border-yellow-400/30 text-[10px] h-5">Fair</Badge>
-                      </div>
-                      <div className="w-full h-1 bg-surface-container-highest rounded-full">
-                        <div className="h-full bg-yellow-400 rounded-full" style={{ width: "55%" }}></div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-surface-container border-none">
-                    <CardContent className="p-3 space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-on-surface-variant">Engagement</span>
-                        <Badge variant="outline" className="text-primary border-primary/30 text-[10px] h-5">{wordCount > 300 ? "High" : "Low"}</Badge>
-                      </div>
-                      <div className="w-full h-1 bg-surface-container-highest rounded-full">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(100, (wordCount / 500) * 100)}%` }}></div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                  {/* Full Generation */}
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Generate Full Article</span>
+                    <div className="mt-2 space-y-2">
+                      <Input
+                        value={topic}
+                        onChange={(e) => setTopic(e.target.value)}
+                        placeholder="Enter topic..."
+                        className="bg-surface-container border-outline-variant/20 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary"
+                      />
+                      <select
+                        value={tone}
+                        onChange={(e) => setTone(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/20 text-sm text-on-surface outline-none focus:border-primary"
+                      >
+                        <option value="professional">Professional</option>
+                        <option value="casual">Casual</option>
+                        <option value="academic">Academic</option>
+                        <option value="creative">Creative</option>
+                      </select>
+                      <Button
+                        onClick={handleGenerateWithAI}
+                        disabled={generatingAI}
+                        className="w-full bg-linear-to-r from-secondary to-tertiary text-white font-bold hover:scale-[1.02] transition-all"
+                      >
+                        {generatingAI ? "Generating..." : "Generate with AI"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Cover Image Generation */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Cover Image</span>
+                      <button
+                        onClick={() => setUseAIImage(!useAIImage)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${useAIImage ? "bg-primary" : "bg-surface-container-highest"}`}
+                      >
+                        <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform ${useAIImage ? "translate-x-4" : "translate-x-0.5"}`} />
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-on-surface-variant mb-2">
+                      {useAIImage ? "AI generates a cover image from your prompt" : "Upload an image from your device"}
+                    </p>
+                    <div className="space-y-2">
+                      {useAIImage ? (
+                        <>
+                          <Input
+                            value={imagePrompt}
+                            onChange={(e) => setImagePrompt(e.target.value)}
+                            placeholder="Image prompt (or uses title)..."
+                            className="bg-surface-container border-outline-variant/20 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary"
+                          />
+                          <Button
+                            onClick={handleGenerateImage}
+                            disabled={generatingImage}
+                            className="w-full bg-linear-to-r from-primary to-secondary text-white font-bold hover:scale-[1.02] transition-all"
+                          >
+                            <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                            {generatingImage ? "Generating..." : "Generate with AI"}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <label className="w-full py-3 border-2 border-dashed border-outline-variant/30 rounded-lg text-sm text-on-surface-variant flex items-center justify-center gap-2 cursor-pointer hover:border-primary/40 transition-colors">
+                            <span className="material-symbols-outlined text-sm">upload_file</span>
+                            {uploadingImage ? "Uploading..." : "Choose File"}
+                            <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={uploadingImage} />
+                          </label>
+                          <div className="text-[10px] text-on-surface-variant">Or paste a URL:</div>
+                          <Input
+                            value={coverImageUrl}
+                            onChange={(e) => setCoverImageUrl(e.target.value)}
+                            placeholder="https://..."
+                            className="bg-surface-container border-outline-variant/20 text-on-surface placeholder:text-on-surface-variant/50 focus:border-primary"
+                          />
+                        </>
+                      )}
+                      {coverImageUrl && (
+                        <div className="rounded-lg overflow-hidden border border-outline-variant/20">
+                          <div className="relative w-full h-28">
+                            <Image src={coverImageUrl} alt="Cover preview" fill className="object-cover" sizes="400px" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
+              )}
+            </div>
+
+            {/* Chat Input — always visible */}
+            <div className="p-3 border-t border-white/10">
+              <div className="relative">
+                <textarea
+                  value={copilotInput}
+                  onChange={(e) => setCopilotInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleCopilotChat(); } }}
+                  placeholder="Ask AI to help with your writing..."
+                  rows={2}
+                  className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg p-3 pr-10 text-xs text-zinc-200 placeholder:text-zinc-600 focus:border-primary/50 focus:ring-0 outline-none resize-none"
+                />
+                <button
+                  onClick={handleCopilotChat}
+                  disabled={copilotLoading || !copilotInput.trim()}
+                  className="absolute bottom-3 right-3 text-primary hover:text-primary/80 disabled:text-zinc-600 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">send</span>
+                </button>
               </div>
             </div>
           </aside>

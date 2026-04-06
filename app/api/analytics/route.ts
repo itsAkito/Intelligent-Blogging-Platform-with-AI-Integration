@@ -81,20 +81,33 @@ export async function GET(request: NextRequest) {
       } catch {}
     }
     
+    // If userId came from admin session cookie, it's an email — mark as verified admin directly
+    let isVerifiedAdmin = false;
+    const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').toLowerCase();
+
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = await createClient();
-    
-    // Verify admin
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
 
-    if (!profile || profile.role !== 'admin') {
+    // If userId is the admin email (from cookie auth), skip profile lookup
+    if (userId.includes('@') && userId.toLowerCase() === adminEmail) {
+      isVerifiedAdmin = true;
+    } else {
+      // Verify admin via profile lookup (Clerk / OTP user IDs)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profile?.role === 'admin') {
+        isVerifiedAdmin = true;
+      }
+    }
+
+    if (!isVerifiedAdmin) {
       return NextResponse.json({ error: 'Unauthorized - Admin only' }, { status: 401 });
     }
 

@@ -1,7 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Navbar from "@/components/NavBar";
-import Footer from "@/components/Footer";
+
+const Footer = dynamic(() => import("@/components/Footer"), { ssr: false });
 
 export default function PrivacyPolicyPage() {
   return (

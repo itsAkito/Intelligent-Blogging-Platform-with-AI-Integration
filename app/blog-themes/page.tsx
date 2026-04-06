@@ -576,6 +576,56 @@ export default function BlogThemesPage() {
           </div>
         </section>
 
+        {/* ─── Storytelling: How Themes Work ─── */}
+        <section className="border-b border-white/5 py-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-8">
+            <p className="text-xs uppercase tracking-[0.3em] text-on-surface-variant mb-6 text-center">The Journey</p>
+            <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tight text-on-surface text-center mb-12">
+              From blank canvas to <span className="italic bg-linear-to-r from-amber-300/90 to-violet-400/70 bg-clip-text text-transparent">published masterpiece</span>
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-0 relative">
+              <div className="hidden md:block absolute top-10 left-[16.6%] right-[16.6%] h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+              {[
+                { step: "01", icon: "palette", title: "Pick Your Identity", desc: "Every category has its own typography, color palette, and card layout — designed for specific content styles. Business blogs feel authoritative; tech blogs feel precise; travel blogs feel adventurous." },
+                { step: "02", icon: "edit_note", title: "Write With Style", desc: "Your chosen theme wraps around your words instantly — headings, code blocks, quotes, and images all adapt. What you see in preview is exactly what your readers experience." },
+                { step: "03", icon: "rocket_launch", title: "Publish & Stand Out", desc: "No two blogs look the same. Your theme becomes your brand identity — unique fonts, colors, and layouts that readers associate with your voice." },
+              ].map((item, i) => (
+                <div key={i} className="relative text-center px-6 py-6">
+                  <div className="w-14 h-14 mx-auto mb-4 border border-white/10 bg-surface-container/50 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-2xl text-on-surface-variant">{item.icon}</span>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.3em] text-primary/60 block mb-2">{item.step}</span>
+                  <h3 className="text-lg font-bold text-on-surface mb-2">{item.title}</h3>
+                  <p className="text-xs text-on-surface-variant leading-relaxed">{item.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ─── Typography Showcase Strip ─── */}
+        <section className="border-b border-white/5 py-10 overflow-hidden">
+          <div className="max-w-7xl mx-auto px-4 sm:px-8">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-on-surface-variant mb-6 text-center">6 Curated Typography Styles</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {[
+                { font: "'Playfair Display', Georgia, serif", label: "Playfair Display", vibe: "Elegant & Editorial", sample: "The Art of Storytelling" },
+                { font: "'JetBrains Mono', monospace", label: "JetBrains Mono", vibe: "Technical & Precise", sample: "function deploy() {" },
+                { font: "'Space Grotesk', sans-serif", label: "Space Grotesk", vibe: "Modern & Clean", sample: "Innovation Starts Here" },
+                { font: "'Lora', Georgia, serif", label: "Lora", vibe: "Warm & Classic", sample: "A Journey Through Time" },
+                { font: "'Crimson Pro', Georgia, serif", label: "Crimson Pro", vibe: "Academic & Refined", sample: "Research & Discovery" },
+                { font: "'Inter', sans-serif", label: "Inter", vibe: "Minimal & Universal", sample: "Design That Speaks" },
+              ].map((f) => (
+                <div key={f.label} className="border border-white/8 bg-surface-container/30 p-4 text-center hover:border-white/20 transition-colors group">
+                  <p className="text-base font-bold text-on-surface mb-1 leading-tight" style={{ fontFamily: f.font }}>{f.sample}</p>
+                  <span className="text-[9px] uppercase tracking-[0.2em] text-primary/70 block mb-0.5">{f.label}</span>
+                  <span className="text-[9px] text-on-surface-variant">{f.vibe}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ─── Category Navigation ─── */}
         <section className="sticky top-16 z-30 bg-background/80 backdrop-blur-xl border-b border-white/5">
           <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3 space-y-2">

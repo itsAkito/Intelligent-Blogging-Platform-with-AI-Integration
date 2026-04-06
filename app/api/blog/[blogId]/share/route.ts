@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 type SharePlatform = 'twitter' | 'linkedin' | 'facebook' | 'email' | 'direct';
 
@@ -15,7 +15,7 @@ export async function POST(
   try {
     const { blogId } = await params;
     const { platform, recipientEmail, message } = await req.json();
-    const { userId } = await auth();
+    const userId = await getAuthUserId(req);
 
     // Validate platform
     const validPlatforms: SharePlatform[] = [

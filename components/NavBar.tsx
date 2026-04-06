@@ -5,10 +5,9 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useUser } from "@clerk/nextjs";
 import { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import NotificationsDropdown from "@/components/NotificationsDropdown";
-import LanguageSwitcher from "@/components/LanguageSwitcher";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +15,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+const NotificationsDropdown = dynamic(() => import("@/components/NotificationsDropdown"), { ssr: false });
+const LanguageSwitcher = dynamic(() => import("@/components/LanguageSwitcher"), { ssr: false });
+const ThemeToggle = dynamic(() => import("@/components/ThemeToggle"), { ssr: false });
 
 const PRIMARY_LINKS = [
   { href: "/", label: "About", icon: "info" },
@@ -60,7 +63,7 @@ export default function Navbar() {
   }, [router]);
 
   // OTP session user is represented by profile without an active Clerk user object.
-  const isOtpUser = mounted && isAuthenticated && !!profile && !clerkUser && !isAdminOnly;
+  const isOtpUser = mounted && isAuthenticated && !!profile && !clerkUser;
   const isClerkUser = mounted && isAuthenticated && !!clerkUser;
 
   const displayName =
@@ -144,7 +147,7 @@ export default function Navbar() {
                 )}
                 
                 {/* Show OTP User Profile or Clerk Profile */}
-                {(isOtpUser || isClerkUser) && (
+                {(isOtpUser || isClerkUser || isAdminOnly) && (
                   <div onMouseEnter={openProfile} onMouseLeave={closeProfile}>
                     <DropdownMenu open={profileOpen} onOpenChange={setProfileOpen}>
                       <DropdownMenuTrigger asChild>
@@ -181,12 +184,16 @@ export default function Navbar() {
                           )}
                         </div>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <Link href="/dashboard" className="cursor-pointer">Dashboard</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link href="/dashboard/settings" className="cursor-pointer">Settings</Link>
-                        </DropdownMenuItem>
+                        {!isAdminOnly && (
+                          <>
+                            <DropdownMenuItem asChild>
+                              <Link href="/dashboard" className="cursor-pointer">Dashboard</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href="/dashboard/settings" className="cursor-pointer">Settings</Link>
+                            </DropdownMenuItem>
+                          </>
+                        )}
                         {isAdmin && (
                           <DropdownMenuItem asChild>
                             <Link href="/admin" className="cursor-pointer">Admin Panel</Link>
@@ -228,7 +235,10 @@ export default function Navbar() {
                 <Link href="/auth?next=%2Fpricing">Get Started</Link>
               </Button>
             )}
-            <div className="hidden md:block"><LanguageSwitcher /></div>
+            <div className="hidden md:flex items-center gap-2">
+              <ThemeToggle />
+              <LanguageSwitcher />
+            </div>
             <Button variant="ghost" size="icon" className="md:hidden text-zinc-400" onClick={() => setMenuOpen(!menuOpen)}>
               <span className="material-symbols-outlined">menu</span>
             </Button>
@@ -278,7 +288,8 @@ export default function Navbar() {
               <Link href="/auth" className="block text-sm text-primary font-semibold px-2 py-2" onClick={() => setMenuOpen(false)}>Login / Sign Up</Link>
             )}
 
-            <div className="px-2 pt-1">
+            <div className="px-2 pt-1 flex items-center gap-2">
+              <ThemeToggle />
               <LanguageSwitcher />
             </div>
 

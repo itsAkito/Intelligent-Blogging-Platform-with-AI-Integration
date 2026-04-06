@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 /**
  * POST /api/blog/[blogId]/comments
@@ -12,7 +12,7 @@ export async function POST(
 ) {
   try {
     const { blogId } = await params;
-    const { userId } = await auth();
+    const userId = await getAuthUserId(req);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -29,6 +29,15 @@ export async function POST(
 
     const supabase = await createClient();
 
+    // Check if the commenter is an admin — auto-approve admin comments
+    let isAdmin = false;
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle();
+    isAdmin = profile?.role === 'admin';
+
     // Insert comment
     const { data: comment, error } = await supabase
       .from('blog_comments')
@@ -38,7 +47,7 @@ export async function POST(
           user_id: userId,
           parent_comment_id: parentCommentId || null,
           content: content.trim(),
-          is_approved: false,
+          is_approved: isAdmin,
         },
       ])
       .select()
@@ -85,9 +94,21 @@ export async function GET(
   try {
     const { blogId } = await params;
     const supabase = await createClient();
+    const userId = await getAuthUserId(_req);
+
+    // Check if requester is admin — admins see all comments including unapproved
+    let isAdmin = false;
+    if (userId) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .maybeSingle();
+      isAdmin = profile?.role === 'admin';
+    }
 
     // Get comments with user info
-    const { data: comments, error } = await supabase
+    let query = supabase
       .from('blog_comments')
       .select(
         `
@@ -95,14 +116,20 @@ export async function GET(
         content,
         likes_count,
         created_at,
+        is_approved,
         user_id,
         profiles!inner(id, name, avatar_url)
       `
       )
       .eq('blog_draft_id', blogId)
-      .eq('is_approved', true)
       .is('parent_comment_id', null)
       .order('created_at', { ascending: false });
+
+    if (!isAdmin) {
+      query = query.eq('is_approved', true);
+    }
+
+    const { data: comments, error } = await query;
 
     if (error) {
       return NextResponse.json(

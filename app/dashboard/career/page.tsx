@@ -5,6 +5,10 @@ import Navbar from "@/components/NavBar";
 import SideNavBar from "@/components/SideNavBar";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
+import SkillBadges from "@/components/SkillBadges";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface Milestone {
   level: number;
@@ -34,6 +38,18 @@ export default function CareerTrackPage() {
   const [domains, setDomains] = useState<Domain[]>([]);
   const [totalPosts, setTotalPosts] = useState(0);
   const [totalViews, setTotalViews] = useState(0);
+
+  // AI Skill Assessment state
+  interface SkillAssessment {
+    career_stage: string;
+    skills: { name: string; level: string; confidence: number }[];
+    strengths: string[];
+    growth_areas: string[];
+    next_steps: string[];
+  }
+  const [assessment, setAssessment] = useState<SkillAssessment | null>(null);
+  const [assessmentLoading, setAssessmentLoading] = useState(false);
+  const [assessmentError, setAssessmentError] = useState("");
 
   const fetchCareerData = useCallback(async () => {
     try {
@@ -89,6 +105,42 @@ export default function CareerTrackPage() {
       console.error("Failed to fetch career data:", err);
     }
   }, [user?.id]);
+
+  // Fetch stored AI assessment on mount
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch(`/api/career/analyze?userId=${encodeURIComponent(user.id)}`)
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((data) => {
+        if (data.assessment?.assessment) {
+          setAssessment(data.assessment.assessment);
+        }
+      })
+      .catch(() => {});
+  }, [user?.id]);
+
+  const runAIAssessment = async () => {
+    if (!user?.id) return;
+    setAssessmentLoading(true);
+    setAssessmentError("");
+    try {
+      const response = await fetch("/api/career/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Assessment failed");
+      }
+      const data = await response.json();
+      setAssessment(data.analysis);
+    } catch (err: any) {
+      setAssessmentError(err.message || "Failed to run assessment");
+    } finally {
+      setAssessmentLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchCareerData();
@@ -234,6 +286,155 @@ export default function CareerTrackPage() {
                 </div>
               </div>
             </div>
+
+            {/* AI Skill Assessment Section */}
+            <div className="glass-panel rounded-2xl p-8 mb-10">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold font-headline flex items-center gap-2">
+                    <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>psychology</span>
+                    AI Skill Assessment
+                  </h3>
+                  <p className="text-xs text-on-surface-variant mt-1">AI analyzes your published posts to identify skills
+                    and recommend growth areas.</p>
+                </div>
+                <Button
+                  onClick={runAIAssessment}
+                  disabled={assessmentLoading}
+                  className="bg-linear-to-r from-primary to-secondary text-white font-bold"
+                >
+                  {assessmentLoading ? (
+                    <>
+                      <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                      Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                      {assessment ? "Re-analyze" : "Run Assessment"}
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {assessmentError && (
+                <p className="text-sm text-red-400 mb-4">{assessmentError}</p>
+              )}
+
+              {assessment ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Career Stage */}
+                  <Card className="bg-surface-container border-none">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <span className="material-symbols-outlined text-primary text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>
+                            {assessment.career_stage === "authority" ? "workspace_premium" :
+                             assessment.career_stage === "established" ? "verified" :
+                             assessment.career_stage === "emerging" ? "trending_up" : "school"}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Career Stage</span>
+                          <h4 className="text-xl font-extrabold font-headline capitalize">{assessment.career_stage}</h4>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Skills Breakdown */}
+                  <Card className="bg-surface-container border-none">
+                    <CardContent className="p-6">
+                      <h4 className="text-sm font-bold mb-3 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-secondary text-sm">analytics</span>
+                        Identified Skills
+                      </h4>
+                      <div className="space-y-2.5">
+                        {(assessment.skills || []).slice(0, 6).map((skill, i) => (
+                          <div key={i}>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="font-medium">{skill.name}</span>
+                              <Badge variant="outline" className={`text-[9px] h-4 ${
+                                skill.level === "expert" ? "text-yellow-400 border-yellow-400/30" :
+                                skill.level === "advanced" ? "text-green-400 border-green-400/30" :
+                                skill.level === "intermediate" ? "text-blue-400 border-blue-400/30" :
+                                "text-zinc-400 border-zinc-400/30"
+                              }`}>
+                                {skill.level}
+                              </Badge>
+                            </div>
+                            <div className="w-full h-1 bg-surface-container-highest rounded-full">
+                              <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${skill.confidence}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Strengths */}
+                  <Card className="bg-surface-container border-none">
+                    <CardContent className="p-6">
+                      <h4 className="text-sm font-bold mb-3 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-green-400 text-sm">thumb_up</span>
+                        Strengths
+                      </h4>
+                      <ul className="space-y-2">
+                        {(assessment.strengths || []).map((s, i) => (
+                          <li key={i} className="flex items-start gap-2 text-xs text-on-surface-variant">
+                            <span className="material-symbols-outlined text-green-400 text-xs mt-0.5">check_circle</span>
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+
+                  {/* Growth Areas + Next Steps */}
+                  <Card className="bg-surface-container border-none">
+                    <CardContent className="p-6">
+                      <h4 className="text-sm font-bold mb-3 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-amber-400 text-sm">rocket_launch</span>
+                        Growth Roadmap
+                      </h4>
+                      <div className="space-y-3">
+                        {(assessment.growth_areas || []).map((area, i) => (
+                          <div key={i} className="flex items-start gap-2 text-xs text-on-surface-variant">
+                            <span className="material-symbols-outlined text-amber-400 text-xs mt-0.5">arrow_forward</span>
+                            {area}
+                          </div>
+                        ))}
+                        {(assessment.next_steps || []).length > 0 && (
+                          <>
+                            <div className="border-t border-white/5 pt-3 mt-3">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Next Steps</span>
+                            </div>
+                            {(assessment.next_steps || []).map((step, i) => (
+                              <div key={i} className="flex items-start gap-2 text-xs text-on-surface-variant">
+                                <span className="text-primary font-bold">{i + 1}.</span>
+                                {step}
+                              </div>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-zinc-500">
+                  <span className="material-symbols-outlined text-4xl mb-3 block">psychology</span>
+                  <p className="text-sm">Run your first AI assessment to get personalized skill analysis and career recommendations.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Skill Badges Section */}
+            {user?.id && (
+              <div className="glass-panel rounded-2xl p-8">
+                <SkillBadges userId={user.id} />
+              </div>
+            )}
           </div>
         </main>
       </div>

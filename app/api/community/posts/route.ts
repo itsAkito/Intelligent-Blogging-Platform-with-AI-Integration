@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 /**
  * GET /api/community/posts
@@ -13,7 +13,7 @@ import { auth } from '@clerk/nextjs/server';
  */
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = await getAuthUserId(req);
     const limit = Math.min(
       parseInt(req.nextUrl.searchParams.get('limit') || '20'),
       100

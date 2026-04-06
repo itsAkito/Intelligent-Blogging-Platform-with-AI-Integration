@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 /**
  * POST /api/blog/[blogId]/like
@@ -12,7 +12,7 @@ export async function POST(
 ) {
   try {
     const { blogId } = await params;
-    const { userId } = await auth();
+    const userId = await getAuthUserId(_req);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -77,7 +77,7 @@ export async function GET(
   try {
     const { blogId } = await params;
     const supabase = await createClient();
-    const { userId } = await auth();
+    const userId = await getAuthUserId(_req);
 
     // Get likes count
     const { count } = await supabase

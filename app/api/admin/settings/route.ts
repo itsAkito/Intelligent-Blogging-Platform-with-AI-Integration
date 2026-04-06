@@ -1,20 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { verifyAdminWithOTP } from '@/lib/auth-helpers';
 
 // Get admin settings
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = await verifyAdminWithOTP(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const supabase = await createClient();
-
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single();
-    if (profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
 
     const { data: settings, error } = await supabase
       .from('admin_settings')
@@ -39,16 +34,11 @@ export async function GET() {
 // Save admin settings
 export async function PUT(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = await verifyAdminWithOTP(request);
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const supabase = await createClient();
-
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single();
-    if (profile?.role !== 'admin') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
 
     const { settings } = await request.json();
     if (!settings || typeof settings !== 'object') {

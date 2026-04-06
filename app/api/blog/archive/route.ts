@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 /**
  * POST /api/blog/archive
@@ -11,7 +11,7 @@ export async function POST(
 ) {
   try {
     const { blogId, reason } = await req.json();
-    const { userId } = await auth();
+    const userId = await getAuthUserId(req);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -59,7 +59,7 @@ export async function DELETE(
 ) {
   try {
     const { blogId } = await req.json();
-    const { userId } = await auth();
+    const userId = await getAuthUserId(req);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -103,7 +103,7 @@ export async function DELETE(
  */
 export async function GET(_req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = await getAuthUserId(_req);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

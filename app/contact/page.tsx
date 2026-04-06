@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import Navbar from "@/components/NavBar";
-import Footer from "@/components/Footer";
+
+const Footer = dynamic(() => import("@/components/Footer"), { ssr: false });
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({ name: "", email: "", subject: "", message: "" });

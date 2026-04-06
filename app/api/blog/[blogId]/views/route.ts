@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 /**
  * POST /api/blog/[blogId]/views
@@ -13,7 +13,7 @@ export async function POST(
   try {
     const { blogId } = await params;
     const { timeSpentSeconds = 0, viewType = 'preview' } = await req.json();
-    const { userId } = await auth();
+    const userId = await getAuthUserId(req);
 
     const supabase = await createClient();
 

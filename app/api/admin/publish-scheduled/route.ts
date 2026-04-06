@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { verifyAdminSessionCookie } from '@/lib/admin-auth';
 
 /** Verify request is from cron scheduler or admin session */
 function isAuthorized(request: NextRequest): boolean {
@@ -17,17 +18,8 @@ function isAuthorized(request: NextRequest): boolean {
   const cronSecret = request.headers.get('x-cron-secret');
   if (cronSecret && cronSecret === process.env.CRON_SECRET) return true;
 
-  // Admin session cookie fallback
-  const adminToken = request.cookies.get('admin_session_token')?.value;
-  if (!adminToken) return false;
-
-  try {
-    const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
-    const [email] = Buffer.from(adminToken, 'base64').toString('utf8').split(':');
-    return email?.toLowerCase() === adminEmail;
-  } catch {
-    return false;
-  }
+  // Admin session cookie fallback (HMAC-verified)
+  return verifyAdminSessionCookie(request) !== null;
 }
 
 export async function POST(request: NextRequest) {

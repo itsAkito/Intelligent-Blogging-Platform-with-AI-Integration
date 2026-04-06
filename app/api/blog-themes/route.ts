@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { createClient } from "@/utils/supabase/server";
 import { getAuthUserId } from "@/lib/auth-helpers";
 import { BLOG_THEMES, getThemeCollections, sanitizeThemeConfig } from "@/lib/blog-themes";
+import { cacheGet, cacheSet, cacheInvalidatePrefix } from "@/lib/cache";
 
 async function isAdminUser(userId: string | null) {
   if (!userId) return false;
@@ -18,6 +19,15 @@ export async function GET(request: NextRequest) {
     const admin = await isAdminUser(userId);
     const scope = request.nextUrl.searchParams.get("scope");
     const includeBuiltin = request.nextUrl.searchParams.get("includeBuiltin") !== "false";
+
+    // Cache public theme listings for anonymous/non-admin users
+    const isPublicRequest = !admin && !userId;
+    const cacheKey = isPublicRequest ? `themes:public:${includeBuiltin}` : null;
+
+    if (cacheKey) {
+      const cached = await cacheGet<{ themes: unknown[]; builtInCount: number }>(cacheKey);
+      if (cached) return NextResponse.json(cached);
+    }
 
     let query = supabase
       .from("blog_themes")
@@ -55,7 +65,13 @@ export async function GET(request: NextRequest) {
     }));
 
     const themes = includeBuiltin ? getThemeCollections(records) : records;
-    return NextResponse.json({ themes, builtInCount: BLOG_THEMES.length });
+    const payload = { themes, builtInCount: BLOG_THEMES.length };
+
+    if (cacheKey) {
+      cacheSet(cacheKey, payload, 120).catch(() => {});
+    }
+
+    return NextResponse.json(payload);
   } catch (error) {
     console.error("Get blog themes error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -106,6 +122,9 @@ export async function POST(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
+
+    // Invalidate theme caches
+    cacheInvalidatePrefix("themes:").catch(() => {});
 
     return NextResponse.json({ theme: { ...data, creator_name: null } }, { status: 201 });
   } catch (error) {

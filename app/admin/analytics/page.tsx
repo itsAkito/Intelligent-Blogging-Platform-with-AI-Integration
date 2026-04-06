@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import AdminSideNav from "@/components/AdminSideNav";
-import AdminTopNav from "@/components/AdminTopNav";
+import dynamic from "next/dynamic";
 import { AiBadge } from "@/components/AiBadge";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+
+const AdminSideNav = dynamic(() => import("@/components/AdminSideNav"), { ssr: false });
+const AdminTopNav = dynamic(() => import("@/components/AdminTopNav"), { ssr: false });
 
 export default function AnalyticsPage() {
   const { user, isAdmin, loading } = useAuth();

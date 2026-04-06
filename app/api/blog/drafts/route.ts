@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 /**
  * POST /api/blog/drafts
@@ -8,7 +8,7 @@ import { auth } from '@clerk/nextjs/server';
  */
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = await getAuthUserId(req);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
  */
 export async function GET(req: NextRequest) {
   try {
-    const { userId } = await auth();
+    const userId = await getAuthUserId(req);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

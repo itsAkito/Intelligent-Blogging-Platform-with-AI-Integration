@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
   response.cookies.set("otp_session_token", "", cookieOpts);
   response.cookies.set("otp_session", "", cookieOpts);
   response.cookies.set("admin_session_token", "", cookieOpts);
+  response.cookies.set("admin_session_active", "", cookieOptsPublic);
 
   return response;
 }

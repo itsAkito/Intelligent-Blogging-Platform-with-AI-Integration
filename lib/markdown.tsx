@@ -1,17 +1,22 @@
 import React from "react";
 import { BlogTheme, getThemeById } from "@/lib/blog-themes";
+import DOMPurify from 'isomorphic-dompurify';
 
 function sanitizeHtml(html: string): string {
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '')
-    .replace(/on\w+\s*=\s*\S+/gi, '')
-    .replace(/javascript\s*:/gi, '')
-    .replace(/data\s*:/gi, 'data-blocked:')
-    .replace(/<iframe\b[^>]*>/gi, '')
-    .replace(/<object\b[^>]*>/gi, '')
-    .replace(/<embed\b[^>]*>/gi, '')
-    .replace(/<form\b[^>]*>/gi, '');
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 'b', 'i', 'u', 'a', 'code', 'pre',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'ul', 'ol', 'li', 'blockquote',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'img', 'hr', 'span', 'div', 'sup', 'sub', 'del',
+    ],
+    ALLOWED_ATTR: [
+      'href', 'target', 'rel', 'src', 'alt', 'title', 'class',
+      'width', 'height', 'id', 'colspan', 'rowspan',
+    ],
+    ALLOW_DATA_ATTR: false,
+  });
 }
 
 export function renderInlineMarkdown(text: string): string {

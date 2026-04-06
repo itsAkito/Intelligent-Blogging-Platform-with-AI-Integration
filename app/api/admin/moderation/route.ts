@@ -76,7 +76,8 @@ export async function GET(request: NextRequest) {
         }
 
         if (postsQuery.error) {
-          return NextResponse.json({ error: postsQuery.error.message }, { status: 400 });
+          console.warn('Moderation posts fallback error:', postsQuery.error.message);
+          return NextResponse.json({ type: 'posts', items: [], count: 0 });
         }
 
         const posts = postsQuery.data || [];
@@ -148,22 +149,24 @@ export async function GET(request: NextRequest) {
           .select('id, post_id, community_post_id, user_id, guest_name, guest_email, content, created_at, is_approved, flagged_as_spam')
           .order('created_at', { ascending: true });
 
-        if (fallback.error && isMissingColumnError(fallback.error, 'guest_email')) {
+        if (fallback.error) {
+          // Progressive column stripping
           fallback = await supabase
             .from('comments')
-            .select('id, post_id, community_post_id, user_id, guest_name, content, created_at, is_approved, flagged_as_spam')
+            .select('id, post_id, user_id, guest_name, content, created_at, is_approved, flagged_as_spam')
             .order('created_at', { ascending: true });
         }
 
         if (fallback.error && (isMissingColumnError(fallback.error, 'is_approved') || isMissingColumnError(fallback.error, 'flagged_as_spam'))) {
           fallback = await supabase
             .from('comments')
-            .select('id, post_id, community_post_id, user_id, guest_name, content, created_at')
+            .select('id, post_id, user_id, guest_name, content, created_at')
             .order('created_at', { ascending: true });
         }
 
         if (fallback.error) {
-          return NextResponse.json({ error: fallback.error.message }, { status: 400 });
+          console.warn('Moderation comments fallback error:', fallback.error.message);
+          return NextResponse.json({ type: 'comments', items: [], count: 0 });
         }
 
         const filtered = (fallback.data || []).filter((comment: any) =>
@@ -186,6 +189,83 @@ export async function GET(request: NextRequest) {
         type: 'comments',
         items: pendingComments || [],
         count: pendingComments?.length || 0 
+      });
+    } else if (type === 'reviews') {
+      // Get pending reviews (unapproved)
+      let reviewsQuery: any = await supabase
+        .from('post_reviews')
+        .select('id, post_id, user_id, rating, comment, created_at, is_approved')
+        .eq('is_approved', false)
+        .order('created_at', { ascending: true });
+
+      if (reviewsQuery.error && (isMissingColumnError(reviewsQuery.error, 'is_approved'))) {
+        // If is_approved column doesn't exist, return all reviews
+        reviewsQuery = await supabase
+          .from('post_reviews')
+          .select('id, post_id, user_id, rating, comment, created_at')
+          .order('created_at', { ascending: true });
+      }
+
+      if (reviewsQuery.error && isSchemaError(reviewsQuery.error)) {
+        // post_reviews table doesn't exist
+        return NextResponse.json({ type: 'reviews', items: [], count: 0 });
+      }
+
+      if (reviewsQuery.error) {
+        console.warn('Moderation reviews error:', reviewsQuery.error.message);
+        return NextResponse.json({ type: 'reviews', items: [], count: 0 });
+      }
+
+      const reviews = reviewsQuery.data || [];
+
+      // Fetch author profiles and post titles
+      const userIds = Array.from(new Set(reviews.map((r: any) => r.user_id).filter(Boolean)));
+      const postIds = Array.from(new Set(reviews.map((r: any) => r.post_id).filter(Boolean)));
+
+      let profilesById = new Map<string, any>();
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, name, avatar_url')
+          .in('id', userIds);
+        if (profiles) {
+          profilesById = new Map(profiles.map((p: any) => [p.id, p]));
+        }
+      }
+
+      let postsById = new Map<string, any>();
+      if (postIds.length > 0) {
+        const { data: posts } = await supabase
+          .from('posts')
+          .select('id, title, slug')
+          .in('id', postIds);
+        if (posts) {
+          postsById = new Map(posts.map((p: any) => [p.id, p]));
+        }
+      }
+
+      const mapped = reviews.map((review: any) => {
+        const profile = review.user_id ? profilesById.get(review.user_id) : null;
+        const post = review.post_id ? postsById.get(review.post_id) : null;
+        return {
+          id: review.id,
+          rating: review.rating,
+          comment: review.comment,
+          created_at: review.created_at,
+          postTitle: post?.title ?? null,
+          postSlug: post?.slug ?? null,
+          author: {
+            id: profile?.id ?? review.user_id ?? '',
+            name: profile?.name ?? 'Unknown',
+            avatar_url: profile?.avatar_url ?? null,
+          },
+        };
+      });
+
+      return NextResponse.json({
+        type: 'reviews',
+        items: mapped,
+        count: mapped.length,
       });
     }
 

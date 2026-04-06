@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@/utils/supabase/server';
 import { logAdminAction } from '@/lib/admin-audit';
+import { verifyAdminSessionCookie } from '@/lib/admin-auth';
 
 function createSlug(title: string): string {
   return title
@@ -24,14 +25,8 @@ async function verifyAdmin(request: NextRequest): Promise<string | null> {
     }
   } catch { /* continue */ }
 
-  try {
-    const token = request.cookies.get('admin_session_token')?.value;
-    if (token) {
-      const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
-      const [email] = Buffer.from(token, 'base64').toString('utf8').split(':');
-      if (email?.toLowerCase() === adminEmail) return email;
-    }
-  } catch { /* continue */ }
+  const email = verifyAdminSessionCookie(request);
+  if (email) return email;
 
   try {
     const supabase = await createClient();

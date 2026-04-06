@@ -48,6 +48,42 @@ export async function GET(request: NextRequest) {
     const targetUserId = request.nextUrl.searchParams.get('user_id');
     const type = request.nextUrl.searchParams.get('type') || 'followers';
 
+    // Check if current user has a pending follow request to target user
+    if (type === 'check') {
+      if (!targetUserId) {
+        return NextResponse.json({ error: 'user_id is required for check' }, { status: 400 });
+      }
+
+      // Check direct follow
+      const { data: followRow } = await supabase
+        .from('user_follows')
+        .select('id')
+        .eq('follower_id', userId)
+        .eq('following_id', targetUserId)
+        .maybeSingle();
+
+      if (followRow) {
+        return NextResponse.json({ isFollowing: true, isPending: false });
+      }
+
+      // Check pending request
+      try {
+        const { data: requestRow } = await supabase
+          .from('follow_requests')
+          .select('id, status')
+          .eq('from_user_id', userId)
+          .eq('to_user_id', targetUserId)
+          .eq('status', 'pending')
+          .maybeSingle();
+
+        if (requestRow) {
+          return NextResponse.json({ isFollowing: true, isPending: true });
+        }
+      } catch {}
+
+      return NextResponse.json({ isFollowing: false, isPending: false });
+    }
+
     if (type === 'requests') {
       const { data, error } = await supabase
         .from('follow_requests')

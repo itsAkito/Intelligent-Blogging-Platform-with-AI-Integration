@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, createContext, useContext, useCallback } from "react";
+import React, { useState, useEffect, createContext, useContext, useCallback, useRef } from "react";
 import { useUser } from "@clerk/nextjs";
 import { usePathname } from "next/navigation";
 
@@ -35,9 +35,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<string>("user");
-  const isAdminRoute = pathname?.includes("/admin");
-  const isAuthRoute = pathname?.startsWith("/auth");
+  const isAuthRoute = pathname?.startsWith("/auth") || pathname === "/admin/login";
 
+  // Guard: prevent Clerk's late isLoaded flip from overwriting an already-resolved
+  // admin/OTP session. Once cookie-based auth succeeds, ignore subsequent effect runs.
+  const resolvedRef = useRef(false);
+
+  // ── Clerk path: sync Clerk user → Supabase profile ──────────────────────
   const syncUserToSupabase = useCallback(async () => {
     if (!clerkUser) {
       setLoading(false);
@@ -74,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data.profile) {
           setProfile(data.profile);
           setRole(data.profile.role || "user");
+          resolvedRef.current = true;
           setLoading(false);
           return;
         }
@@ -81,26 +86,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setProfile(fallbackProfile);
       setRole(userRole);
-      setLoading(false);
-    } catch (error) {
-      // Network hiccups should not surface as hard console errors in normal auth flow.
+    } catch {
       setProfile(fallbackProfile);
       setRole(userRole);
-      setLoading(false);
     }
-  }, [clerkUser, isAdminRoute]);
+    resolvedRef.current = true;
+    setLoading(false);
+  }, [clerkUser]);
 
-  // Check for OTP-based login from database session
-  const loadOtpUser = useCallback(async () => {
-    // Only probe if the relevant cookies are present — avoids 401 noise for regular visitors
+  // ── Cookie path: try OTP session first, then admin cookie ───────────────
+  const loadCookieSession = useCallback(async () => {
     const hasOtpCookie = document.cookie.includes("otp_session_token=");
-    const hasAdminCookie = document.cookie.includes("admin_session_token=");
+    // admin_session_token is httpOnly — use the non-httpOnly companion flag
+    const hasAdminCookie = document.cookie.includes("admin_session_active=");
 
     if (!hasOtpCookie && !hasAdminCookie) {
       setLoading(false);
       return false;
     }
 
+    // 1. OTP session
     if (hasOtpCookie) try {
       const res = await fetch("/api/auth/otp/session", {
         method: "GET",
@@ -110,26 +115,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (res.ok) {
         const data = await res.json();
         const { user } = data;
-        
-        const profile: Profile = {
+
+        const otpProfile: Profile = {
           id: user.id,
           email: user.email,
           name: user.name || user.email?.split("@")[0] || "User",
           avatar_url: user.avatar_url,
           role: user.role || "user",
         };
-        
-        setProfile(profile);
-        setRole(profile.role);
-        
+
+        setProfile(otpProfile);
+        setRole(otpProfile.role);
+        resolvedRef.current = true;
         setLoading(false);
         return true;
       }
     } catch {
-      // Expected 401 when OTP session is invalid — suppress console noise.
+      // Expected 401 when OTP session is invalid
     }
 
-    // Fallback for admin cookie session — probe the lightweight /api/admin/me endpoint.
+    // 2. Admin cookie session (HMAC-verified, works on ANY page — not just /admin routes)
     if (hasAdminCookie) try {
       const adminProbe = await fetch("/api/admin/me", {
         method: "GET",
@@ -146,61 +151,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
         setProfile(adminProfile);
         setRole("admin");
+        resolvedRef.current = true;
         setLoading(false);
         return true;
       }
     } catch {
-      // Expected 401 when no admin session exists — suppress console noise.
+      // Expected 401 when admin session cookie is invalid
     }
 
-    // If no session found, just finish loading
     setLoading(false);
     return false;
-  }, [isAdminRoute]);
+  }, []); // No dependencies — works the same on every route
 
-  // Lifecycle: Load auth state once
+  // ── Lifecycle: determine which auth path to take ────────────────────────
   useEffect(() => {
-    if (!isLoaded) return;
+    // If a cookie-based session was already resolved, don't let subsequent
+    // Clerk state changes (isLoaded flipping) overwrite it.
+    if (resolvedRef.current) return;
 
-    if (isSignedIn && clerkUser) {
+    // 1. Clerk user is signed in → sync to Supabase
+    if (isLoaded && isSignedIn && clerkUser) {
       syncUserToSupabase();
       return;
     }
 
-    // Avoid noisy 401 session probes on the auth entry route when user is logged out.
+    // 2. On auth entry pages, don't probe sessions (avoids 401 noise)
     if (isAuthRoute) {
       setLoading(false);
       return;
     }
 
-    loadOtpUser().catch(() => {
-      // If OTP load fails, just finish loading
-      setLoading(false);
-    });
-  }, [isLoaded, isSignedIn, clerkUser, syncUserToSupabase, loadOtpUser, isAuthRoute]);
+    // 3. Check for admin/OTP cookie sessions immediately — don't wait for Clerk
+    const hasAdminCookie = document.cookie.includes("admin_session_active=");
+    const hasOtpCookie = document.cookie.includes("otp_session_token=");
+
+    if (hasAdminCookie || hasOtpCookie) {
+      loadCookieSession().catch(() => setLoading(false));
+      return;
+    }
+
+    // 4. No cookies and Clerk hasn't loaded yet — wait for Clerk
+    if (!isLoaded) return;
+
+    // 5. Clerk loaded but user is not signed in and no cookies — anonymous visitor
+    setLoading(false);
+  }, [isLoaded, isSignedIn, clerkUser, syncUserToSupabase, loadCookieSession, isAuthRoute]);
 
   const isAuthenticated = !!isSignedIn || !!profile;
   const isAdminOnly = !isSignedIn && !!profile && profile.id === "admin-session" && role === "admin";
 
   const signOut = async () => {
-    // Clear local state immediately so UI responds at once
     setProfile(null);
     setRole("user");
+    resolvedRef.current = false;
 
-    // Call the unified sign-out API route.
-    // This route handles ALL auth types (Clerk, OTP, admin) via plain HTTP —
-    // NO Clerk Server Actions are involved, so there are no stale-hash errors.
     try {
       await fetch("/api/auth/signout", { method: "POST", credentials: "include" });
     } catch {
-      // Non-fatal — proceed to redirect regardless
+      // Non-fatal
     }
 
     if (typeof window !== "undefined") {
       localStorage.removeItem("admin_session_start");
     }
 
-    // Hard navigate to homepage so Clerk middleware re-evaluates fresh cookies
     window.location.href = "/";
   };
 

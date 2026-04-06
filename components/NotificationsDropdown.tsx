@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -44,6 +44,24 @@ export default function NotificationsDropdown() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Lightweight poll for unread count (every 30s) so badge shows without opening dropdown
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const response = await fetch("/api/notifications?limit=20");
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.unreadCount || 0);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    pollRef.current = setInterval(fetchUnreadCount, 30_000);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [fetchUnreadCount]);
 
   const fetchNotifications = async () => {
     try {

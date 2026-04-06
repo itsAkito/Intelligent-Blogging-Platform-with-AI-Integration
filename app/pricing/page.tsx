@@ -5,8 +5,10 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import Navbar from "@/components/NavBar";
-import Footer from "@/components/Footer";
+
+const Footer = dynamic(() => import("@/components/Footer"), { ssr: false });
 
 declare global {
   interface Window {

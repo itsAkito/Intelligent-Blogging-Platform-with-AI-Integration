@@ -21,7 +21,11 @@ export function verifyAdminSessionCookie(request: NextRequest): string | null {
     if (!email || email.toLowerCase() !== adminEmail) return null;
 
     // Verify HMAC signature
-    const secret = process.env.ADMIN_SESSION_SECRET || process.env.CLERK_SECRET_KEY || 'fallback-secret-change-this';
+    const secret = process.env.ADMIN_SESSION_SECRET || process.env.CLERK_SECRET_KEY;
+    if (!secret) {
+      console.error('Admin session verification failed: ADMIN_SESSION_SECRET or CLERK_SECRET_KEY must be set');
+      return null;
+    }
     const expectedHmac = crypto.createHmac('sha256', secret).update(payload).digest('hex');
     if (!crypto.timingSafeEqual(Buffer.from(hmac, 'hex'), Buffer.from(expectedHmac, 'hex'))) {
       return null;
@@ -29,13 +33,6 @@ export function verifyAdminSessionCookie(request: NextRequest): string | null {
 
     return email;
   } catch {
-    // Fallback: support legacy unsigned tokens during transition
-    try {
-      const decoded = Buffer.from(adminSessionToken, 'base64').toString('utf8');
-      const [email] = decoded.split(':');
-      const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').toLowerCase();
-      if (email?.toLowerCase() === adminEmail) return email;
-    } catch { /* ignore */ }
     return null;
   }
 }
@@ -48,8 +45,9 @@ export function verifyAdminSessionCookie(request: NextRequest): string | null {
 export function verifyAdminStatus(user: any): boolean {
   if (!user) return false;
   
-  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@gmail.com';
-  return user.email?.toLowerCase() === adminEmail.toLowerCase();
+  const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').toLowerCase();
+  if (!adminEmail) return false;
+  return user.email?.toLowerCase() === adminEmail;
 }
 
 /**
@@ -60,11 +58,12 @@ export function verifyAdminToken(token: string | undefined): boolean {
   
   // Check if token matches admin token in environment
   const expectedToken = process.env.ADMIN_TOKEN;
-  if (expectedToken) {
-    return token === expectedToken;
+  if (!expectedToken) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(token), Buffer.from(expectedToken));
+  } catch {
+    return false;
   }
-  
-  return false;
 }
 
 /**

@@ -24,7 +24,7 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     return NextResponse.next();
   }
 
-  // Keep auth entry pages accessible to OTP and Clerk users without forced redirects.
+  // Keep auth entry pages accessible without forced redirects.
   if (isAuthEntryRoute(req)) {
     return NextResponse.next();
   }
@@ -33,76 +33,92 @@ export default clerkMiddleware(async (auth, req: NextRequest) => {
     const otpSessionToken = req.cookies.get("otp_session_token")?.value;
     const adminSessionToken = req.cookies.get("admin_session_token")?.value;
 
-    // Admin cookie: grant access to admin routes only — block non-admin routes.
-    // This prevents admin-only sessions from accessing /dashboard, /editor, etc.
-    if (adminSessionToken && !otpSessionToken) {
+    // ── Admin cookie holder ──────────────────────────────────────────────
+    if (adminSessionToken) {
+      // Admin cookie grants access to admin routes unconditionally
       if (isAdminRoute(req)) {
         return NextResponse.next();
       }
-      // Admin cookie holder trying to access a non-admin protected route without Clerk/OTP auth
-      const { userId } = await auth();
-      if (!userId) {
-        // Not a Clerk user — redirect to admin panel
-        return NextResponse.redirect(new URL("/admin", req.url));
+      // Admin cookie also grants access to the editor (create/edit posts)
+      if (req.nextUrl.pathname.startsWith("/editor")) {
+        return NextResponse.next();
       }
-      // If they also have a Clerk session, let them through (dual auth)
-    } else if (adminSessionToken && isAdminRoute(req)) {
-      return NextResponse.next();
+      // For non-admin protected routes (/dashboard, etc.):
+      // Check if they also have an OTP or Clerk session — if so, let them through.
+      if (otpSessionToken) {
+        return NextResponse.next();
+      }
+      const { userId } = await auth();
+      if (userId) {
+        return NextResponse.next(); // dual auth: Clerk + admin cookie
+      }
+      // Admin-only session trying to access /dashboard → redirect to /admin
+      return NextResponse.redirect(new URL("/admin", req.url));
     }
 
-    // OTP session: grant access immediately for non-admin protected routes
-    if (otpSessionToken && !isAdminRoute(req)) {
-      return NextResponse.next();
+    // ── OTP session holder ───────────────────────────────────────────────
+    if (otpSessionToken) {
+      // OTP grants access to non-admin protected routes
+      if (!isAdminRoute(req)) {
+        return NextResponse.next();
+      }
+      // OTP user trying to access /admin — needs role check via DB
+      // Fall through to Clerk auth check below
     }
 
-    // For Clerk-based users, check Clerk auth state
+    // ── Clerk-based auth ─────────────────────────────────────────────────
     const { userId } = await auth();
 
     if (!userId && !otpSessionToken && !adminSessionToken) {
       if (isAdminRoute(req)) {
         return NextResponse.redirect(new URL("/admin/login", req.url));
       }
-
       const authUrl = new URL("/auth", req.url);
       authUrl.searchParams.set("next", req.nextUrl.pathname);
       return NextResponse.redirect(authUrl);
     }
 
-    // Check user role for admin routes (Clerk users only at this point)
-    let userRole = "user";
-    let isAuthenticated = !!userId;
+    // Role check for admin routes (Clerk users or OTP users trying /admin/*)
+    if (isAdminRoute(req)) {
+      let userRole = "user";
 
-    try {
-      if (userId) {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", userId)
-          .single();
-        userRole = profile?.role || "user";
-        isAuthenticated = true;
-      }
-
-      if (!isAuthenticated) {
-        if (isAdminRoute(req)) {
-          return NextResponse.redirect(new URL("/admin/login", req.url));
+      try {
+        if (userId) {
+          const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+          );
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", userId)
+            .single();
+          userRole = profile?.role || "user";
+        } else if (otpSessionToken) {
+          // OTP user — check role in DB
+          const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+          );
+          const { data: session } = await supabase
+            .from("otp_sessions")
+            .select("user_id")
+            .eq("session_token", otpSessionToken)
+            .single();
+          if (session?.user_id) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("role")
+              .eq("id", session.user_id)
+              .single();
+            userRole = profile?.role || "user";
+          }
         }
-        const authUrl = new URL("/auth", req.url);
-        authUrl.searchParams.set("next", req.nextUrl.pathname);
-        return NextResponse.redirect(authUrl);
+      } catch (error) {
+        console.error("Profile check failed:", error);
       }
 
-      // Role-based route protection: Clerk users trying to access admin routes
-      if (isAdminRoute(req) && userRole !== "admin") {
-        return NextResponse.redirect(new URL("/admin/login", req.url));
-      }
-    } catch (error) {
-      console.error("Profile check failed:", error);
-      if (isAdminRoute(req)) {
+      if (userRole !== "admin") {
         return NextResponse.redirect(new URL("/admin/login", req.url));
       }
     }

@@ -1,13 +1,32 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { generateBlogContent, getAIProviderStatus } from '@/lib/gemini';
+import { auth } from '@clerk/nextjs/server';
+import { verifyAdminSessionCookie } from '@/lib/admin-auth';
+
+async function verifyAdmin(request: NextRequest): Promise<boolean> {
+  try {
+    const { userId } = await auth();
+    if (userId) {
+      const { createClient } = await import('@/utils/supabase/server');
+      const supabase = await createClient();
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).maybeSingle();
+      if (profile?.role === 'admin') return true;
+    }
+  } catch { /* fallback */ }
+  return !!verifyAdminSessionCookie(request);
+}
 
 /**
  * GET /api/admin/test-gemini
  * Test Gemini API configuration
  * Returns: { status: "ok", model: "...", message: "..." } or error details
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    if (!await verifyAdmin(request)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const aiStatus = getAIProviderStatus();
 
     // Check if at least one provider key is configured

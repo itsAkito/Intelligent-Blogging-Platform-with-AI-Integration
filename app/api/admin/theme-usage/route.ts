@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { auth } from '@clerk/nextjs/server';
+import { verifyAdminSessionCookie } from '@/lib/admin-auth';
 
 async function verifyAdmin(request: NextRequest): Promise<boolean> {
   try {
@@ -12,14 +13,7 @@ async function verifyAdmin(request: NextRequest): Promise<boolean> {
     }
   } catch { /* fallback */ }
 
-  const adminSessionToken = request.cookies.get('admin_session_token')?.value;
-  if (adminSessionToken) {
-    const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').toLowerCase();
-    const decoded = Buffer.from(adminSessionToken, 'base64').toString('utf8');
-    const [email] = decoded.split(':');
-    if (email?.toLowerCase() === adminEmail) return true;
-  }
-  return false;
+  return verifyAdminSessionCookie(request) !== null;
 }
 
 export async function GET(request: NextRequest) {

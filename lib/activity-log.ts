@@ -8,7 +8,12 @@ export type ActivityType =
   | 'post_unliked'
   | 'comment_created'
   | 'admin_post_deleted'
-  | 'admin_action';
+  | 'admin_action'
+  | 'user_signup'
+  | 'user_signin'
+  | 'user_signout'
+  | 'otp_signin'
+  | 'admin_login';
 
 export async function logActivity(params: {
   userId?: string | null;

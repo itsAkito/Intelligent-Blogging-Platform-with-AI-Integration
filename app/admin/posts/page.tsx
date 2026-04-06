@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import AdminSideNav from "@/components/AdminSideNav";
-import AdminTopNav from "@/components/AdminTopNav";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/context/AuthContext";
+
+const AdminSideNav = dynamic(() => import("@/components/AdminSideNav"), { ssr: false });
+const AdminTopNav = dynamic(() => import("@/components/AdminTopNav"), { ssr: false });
 
 type AdminPost = {
   id: string;
@@ -269,7 +271,7 @@ export default function AdminPostsPage() {
           </div>
           <div className="flex gap-3">
             <Link
-              href="/editor"
+              href="/editor?from=admin"
               className="inline-flex items-center gap-2 rounded-lg bg-linear-to-r from-primary to-primary-container px-4 py-2 text-sm font-bold text-on-primary-fixed"
             >
               <span className="material-symbols-outlined text-sm">add</span>

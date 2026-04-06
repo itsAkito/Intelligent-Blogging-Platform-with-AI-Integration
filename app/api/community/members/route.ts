@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 // GET members with follow status
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const { userId } = await auth();
+    const userId = await getAuthUserId(request);
     const limit = request.nextUrl.searchParams.get('limit') || '20';
 
     // Get all profiles (excluding current user)

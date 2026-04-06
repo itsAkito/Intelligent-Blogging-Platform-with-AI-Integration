@@ -507,11 +507,45 @@ export default function BlogPostPage() {
           </header>
 
           {/* Themed Content */}
-          <div className={`mt-10 ${theme.proseClass} max-w-none ${theme.textClass} leading-relaxed`}>
-            {renderMarkdownBlocks(post.content, theme)}
-          </div>
+          {user || isAdmin ? (
+            <div className={`mt-10 ${theme.proseClass} max-w-none ${theme.textClass} leading-relaxed`}>
+              {renderMarkdownBlocks(post.content, theme)}
+            </div>
+          ) : (
+            <>
+              <div className={`mt-10 ${theme.proseClass} max-w-none ${theme.textClass} leading-relaxed relative`}>
+                <div className="line-clamp-[8] overflow-hidden">
+                  {renderMarkdownBlocks(post.content, theme)}
+                </div>
+                <div className={`absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t ${theme.bgClass ? `from-background` : 'from-background'} to-transparent pointer-events-none`}></div>
+              </div>
+              <div className="mt-8 glass-panel rounded-2xl p-8 text-center">
+                <span className="material-symbols-outlined text-5xl text-primary mb-4 block">lock</span>
+                <h3 className={`text-2xl font-bold font-headline ${theme.headingClass} mb-2`}>Sign in to read the full article</h3>
+                <p className={`text-sm ${theme.textClass} mb-6`}>
+                  Create a free account or sign in to access the complete post, leave comments, and engage with the community.
+                </p>
+                <div className="flex items-center justify-center gap-3">
+                  <Link
+                    href={`/auth?next=/blog/${slug}`}
+                    className="px-6 py-3 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-lg text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20"
+                  >
+                    Sign In to Continue Reading
+                  </Link>
+                  <Link
+                    href={`/auth?next=/blog/${slug}`}
+                    className="px-6 py-3 border border-outline-variant/20 text-on-surface-variant font-semibold rounded-lg text-sm hover:bg-surface-container-high transition-colors"
+                  >
+                    Create Account
+                  </Link>
+                </div>
+              </div>
+            </>
+          )}
 
-          {/* Comments Section */}
+          {/* Comments & Reviews — only for authenticated users */}
+          {(user || isAdmin) && (
+          <>
           <section className="mt-16 pt-10 border-t border-outline-variant/10">
             <h2 className="text-2xl font-bold font-headline mb-8 flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">forum</span>
@@ -726,6 +760,8 @@ export default function BlogPostPage() {
               )}
             </div>
           </section>
+          </>
+          )}
         </article>
       </main>
     </>

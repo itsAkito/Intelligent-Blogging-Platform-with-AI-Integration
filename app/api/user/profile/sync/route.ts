@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { auth } from "@clerk/nextjs/server";
+import { logActivity } from "@/lib/activity-log";
 
 export async function POST(request: NextRequest) {
   try {
@@ -66,6 +67,16 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
+
+    // Track sign-in / sign-up event
+    const isNewUser = profile && profile.created_at === profile.updated_at;
+    logActivity({
+      userId: id,
+      activityType: isNewUser ? 'user_signup' : 'user_signin',
+      entityType: 'user',
+      entityId: id,
+      metadata: { email, name, method: 'clerk' },
+    }).catch(() => {});
 
     return NextResponse.json({ profile });
   } catch (error) {

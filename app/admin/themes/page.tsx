@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import AdminSideNav from "@/components/AdminSideNav";
-import AdminTopNav from "@/components/AdminTopNav";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/context/AuthContext";
 import { getThemeFromAny } from "@/lib/blog-themes";
+
+const AdminSideNav = dynamic(() => import("@/components/AdminSideNav"), { ssr: false });
+const AdminTopNav = dynamic(() => import("@/components/AdminTopNav"), { ssr: false });
 
 export default function AdminThemesPage() {
   const { user, isAdmin, loading } = useAuth();

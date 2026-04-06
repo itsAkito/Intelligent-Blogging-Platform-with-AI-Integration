@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 /**
  * POST /api/user/[userId]/follow
@@ -12,7 +12,7 @@ export async function POST(
 ) {
   try {
     const { userId: targetUserId } = await params;
-    const { userId: currentUserId } = await auth();
+    const currentUserId = await getAuthUserId(_req);
 
     if (!currentUserId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -100,7 +100,7 @@ export async function GET(
 ) {
   try {
     const { userId: targetUserId } = await params;
-    const { userId: currentUserId } = await auth();
+    const currentUserId = await getAuthUserId(_req);
     const supabase = await createClient();
 
     // Get follower count for target user

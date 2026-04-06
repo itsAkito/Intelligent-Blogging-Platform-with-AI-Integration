@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
@@ -13,63 +13,19 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/NavBar";
+import {
+  useFeaturedPosts,
+  useCommunityReviews,
+  usePublicStats,
+  useResearchFeed,
+  useForumTopics,
+} from "@/hooks/useHomeData";
+import type {
+  FeaturedPost,
+  ResearchItem,
+} from "@/services/home";
 
 const Footer = dynamic(() => import("@/components/Footer"));
-
-interface FeaturedPost {
-  id: string;
-  title: string;
-  slug?: string;
-  excerpt: string;
-  topic?: string;
-  category?: string;
-  cover_image_url?: string;
-  profiles?: { id: string; name: string; avatar_url: string };
-  created_at: string;
-  views: number;
-}
-
-interface CommunityReview {
-  id: string;
-  rating: number;
-  comment: string;
-  created_at: string;
-  postTitle?: string;
-  postSlug?: string;
-  author: {
-    name: string;
-    avatar_url?: string;
-  };
-}
-
-interface PublicStats {
-  display: {
-    activeCreators: string;
-    syntheticPosts: string;
-    monthlyReads: string;
-    industryMentors: string;
-  };
-}
-
-interface ResearchItem {
-  id: string;
-  title: string;
-  summary: string;
-  url: string;
-  sourceName: string;
-  category: string;
-  publishedAt: string;
-}
-
-interface ForumTopicPreview {
-  id: string;
-  title: string;
-  reply_count: number;
-  like_count: number;
-  forum_categories?: {
-    name: string;
-  };
-}
 
 export default function Home() {
   useScrollReveal();
@@ -77,103 +33,18 @@ export default function Home() {
   const { isAuthenticated } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [newsletterEmail, setNewsletterEmail] = useState("");
-  const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [newsletterMessage, setNewsletterMessage] = useState("");
-  const [featuredPosts, setFeaturedPosts] = useState<FeaturedPost[]>([]);
-  const [recentReviews, setRecentReviews] = useState<CommunityReview[]>([]);
-  const [researchFeed, setResearchFeed] = useState<ResearchItem[]>([]);
-  const [worldNews, setWorldNews] = useState<ResearchItem[]>([]);
-  const [forumTopics, setForumTopics] = useState<ForumTopicPreview[]>([]);
-  const [publicStats, setPublicStats] = useState<PublicStats | null>(null);
-  const [totalPostCount, setTotalPostCount] = useState<number | null>(null);
 
-  const fetchFeaturedReview = useCallback(async () => {
-    try {
-      const res = await fetch("/api/community/reviews?limit=3", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        setRecentReviews(data.reviews || []);
-      }
-    } catch (err) {
-      console.error("Failed to fetch featured review:", err);
-    }
-  }, []);
+  // ── React Query hooks (cached, deduplicated, auto-revalidated) ────────────
+  const { data: postsData } = useFeaturedPosts();
+  const { data: recentReviews = [] } = useCommunityReviews();
+  const { data: publicStats } = usePublicStats();
+  const { data: researchData } = useResearchFeed();
+  const { data: forumTopics = [] } = useForumTopics();
 
-  useEffect(() => {
-    const fetchFeatured = async () => {
-      try {
-        const res = await fetch("/api/posts?limit=3&published=true", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          const posts = data.posts || data || [];
-          setFeaturedPosts(posts);
-          // Grab total count if returned
-          const total = data.total ?? data.pagination?.total ?? null;
-          if (total != null) setTotalPostCount(total);
-        }
-      } catch (err) {
-        console.error("Failed to fetch featured posts:", err);
-      }
-    };
-    const fetchPublicStats = async () => {
-      try {
-        const res = await fetch("/api/public/stats", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          setPublicStats(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch public stats:", err);
-      }
-    };
-    const fetchResearchFeed = async () => {
-      try {
-        const res = await fetch("/api/innovation/news", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        const researchItems = (data.researchNews || data.items || []) as ResearchItem[];
-        const worldItems = (data.worldNews || []) as ResearchItem[];
-        setResearchFeed(researchItems.slice(0, 6));
-        setWorldNews(worldItems.slice(0, 6));
-      } catch (err) {
-        console.error("Failed to fetch research feed:", err);
-      }
-    };
-    const fetchForumTopics = async () => {
-      try {
-        const res = await fetch("/api/forum/topics?limit=6&sort=latest", { cache: "no-store" });
-        if (!res.ok) return;
-        const data = await res.json();
-        setForumTopics((data.topics || []).slice(0, 6));
-      } catch (err) {
-        console.error("Failed to fetch forum topics:", err);
-      }
-    };
-    fetchFeatured();
-    fetchFeaturedReview();
-    fetchPublicStats();
-    fetchResearchFeed();
-    fetchForumTopics();
-  }, [fetchFeaturedReview]);
-
-  useEffect(() => {
-    const intervalId = window.setInterval(() => {
-      void fetchFeaturedReview();
-    }, 30000);
-
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        void fetchFeaturedReview();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", handleVisibility);
-    };
-  }, [fetchFeaturedReview]);
+  const featuredPosts: FeaturedPost[] = postsData?.posts ?? [];
+  const totalPostCount = postsData?.total ?? null;
+  const researchFeed: ResearchItem[] = researchData?.researchFeed ?? [];
+  const worldNews: ResearchItem[] = researchData?.worldNews ?? [];
 
   useEffect(() => setMounted(true), []);
 
@@ -181,31 +52,6 @@ export default function Home() {
     e.preventDefault();
     if (searchQuery.trim()) {
       router.push(`/community?search=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
-
-  const handleNewsletter = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newsletterEmail.trim()) return;
-    setNewsletterStatus("loading");
-    try {
-      const res = await fetch("/api/newsletter", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: newsletterEmail }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setNewsletterStatus("success");
-        setNewsletterMessage("You're subscribed! Welcome aboard.");
-        setNewsletterEmail("");
-      } else {
-        setNewsletterStatus("error");
-        setNewsletterMessage(data.error || "Failed to subscribe.");
-      }
-    } catch {
-      setNewsletterStatus("error");
-      setNewsletterMessage("Something went wrong. Try again.");
     }
   };
 
@@ -230,7 +76,7 @@ export default function Home() {
           <div className="text-center max-w-4xl reveal-on-scroll">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-surface-container-high/80 border border-outline-variant/20 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-8">
               <span className="material-symbols-outlined text-xs text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-              The Future of Editorial Excellence
+              AI-Powered Editorial
             </div>
 
             <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-headline leading-[1.05] tracking-tighter mb-6">
@@ -273,10 +119,10 @@ export default function Home() {
                   />
                   <Button
                     type="submit"
-                    className="mr-1.5 px-5 py-2.5 h-auto bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-extrabold text-xs rounded-full hover:shadow-lg hover:shadow-primary/30 hover:scale-105 active:scale-95 transition-all duration-200"
+                    aria-label="Search"
+                    className="mr-1.5 px-3 py-2.5 h-auto bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-extrabold text-xs rounded-full hover:shadow-lg hover:shadow-primary/30 hover:scale-105 active:scale-95 transition-all duration-200"
                   >
-                    <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                    Search
+                    <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                   </Button>
                 </div>
               </div>
@@ -318,7 +164,7 @@ export default function Home() {
         </section>
 
         {/* Featured Stories */}
-        <section className="py-20 px-4 sm:px-8" style={{background: 'linear-gradient(165deg, rgba(16,185,129,0.07) 0%, rgba(14,14,14,0.15) 38%, rgba(59,130,246,0.08) 80%, rgba(139,92,246,0.06) 100%)'}}>
+        <section className="py-20 px-4 sm:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="flex justify-between items-center mb-4 reveal-on-scroll">
               <div>
@@ -342,6 +188,7 @@ export default function Home() {
                         src={featuredPosts[0].cover_image_url}
                         alt={featuredPosts[0].title}
                         fill
+                        priority
                         sizes="(max-width: 768px) 100vw, 50vw"
                         className="absolute inset-0 h-full w-full object-cover"
                       />
@@ -369,6 +216,11 @@ export default function Home() {
                             </div>
                           </>
                         )}
+                        <div className="ml-auto flex items-center gap-3 text-[11px] text-on-surface-variant/70">
+                          <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[14px]" style={{fontVariationSettings:"'FILL' 1"}}>visibility</span>{featuredPosts[0].views || 0}</span>
+                          <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[14px]" style={{fontVariationSettings:"'FILL' 1"}}>favorite</span>{featuredPosts[0].likes_count || 0}</span>
+                          <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[14px]" style={{fontVariationSettings:"'FILL' 1"}}>chat_bubble</span>{featuredPosts[0].comments_count || 0}</span>
+                        </div>
                       </div>
                     </div>
                   </Link>
@@ -398,6 +250,11 @@ export default function Home() {
                           {post.profiles && (
                             <p className="text-xs text-on-surface-variant mt-1">{post.profiles.name} • {new Date(post.created_at).toLocaleDateString()}</p>
                           )}
+                          <div className="flex items-center gap-3 text-[10px] text-on-surface-variant/60 mt-1.5">
+                            <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[12px]" style={{fontVariationSettings:"'FILL' 1"}}>visibility</span>{post.views || 0}</span>
+                            <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[12px]" style={{fontVariationSettings:"'FILL' 1"}}>favorite</span>{post.likes_count || 0}</span>
+                            <span className="flex items-center gap-1"><span className="material-symbols-outlined text-[12px]" style={{fontVariationSettings:"'FILL' 1"}}>chat_bubble</span>{post.comments_count || 0}</span>
+                          </div>
                         </div>
                       </Link>
                     ))}
@@ -430,7 +287,7 @@ export default function Home() {
                   <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">Your Library</span>
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-blue-400 text-[18px]" style={{fontVariationSettings:"'FILL' 1"}}>article</span>
-                    <span className="text-sm font-bold text-white">{totalPostCount ?? featuredPosts.length} Blog Posts</span>
+                    <span className="text-sm font-bold text-white">{totalPostCount != null ? totalPostCount : featuredPosts.length > 0 ? `${featuredPosts.length}+` : "—"} Blog Posts</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-emerald-400 text-[18px]" style={{fontVariationSettings:"'FILL' 1"}}>science</span>
@@ -458,30 +315,26 @@ export default function Home() {
         <section className="px-4 sm:px-8 pb-10">
           <div className="max-w-7xl mx-auto">
             <div
-              className="relative overflow-hidden rounded-3xl border border-white/10 p-6 sm:p-8"
-              style={{
-                background:
-                  "linear-gradient(135deg, rgba(70,95,82,0.22) 0%, rgba(45,58,53,0.26) 28%, rgba(28,34,33,0.85) 54%, rgba(20,25,25,0.92) 100%)",
-              }}
+              className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 sm:p-8"
             >
-              <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-green-400/22 blur-3xl" />
-              <div className="absolute inset-x-10 top-[46%] h-24 -translate-y-1/2 rounded-full bg-zinc-200/10 blur-2xl" />
-              <div className="absolute -right-16 -bottom-18 h-72 w-72 rounded-full bg-green-400/8 blur-3xl" />
+              <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-primary/8 blur-3xl" />
+              <div className="absolute inset-x-10 top-[46%] h-24 -translate-y-1/2 rounded-full bg-white/5 blur-2xl" />
+              <div className="absolute -right-16 -bottom-18 h-72 w-72 rounded-full bg-primary/5 blur-3xl" />
 
               <div className="relative">
-                <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-100">
+                <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
                   Live Discovery Deck
                 </span>
                 <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tighter text-white">
                   World Research, News, And Forum Momentum
                 </h2>
-                <p className="mt-2 max-w-3xl text-sm text-zinc-200/75">
+                <p className="mt-2 max-w-3xl text-sm text-on-surface-variant/75">
                   Fresh cards stream from global research papers, world AI news, and active forum discussions. Open any card to jump directly into the source.
                 </p>
 
                 <div className="mt-7 grid grid-cols-1 xl:grid-cols-12 gap-4">
-                  <div className="xl:col-span-4 rounded-2xl border border-zinc-300/15 bg-zinc-900/45 p-5 backdrop-blur">
-                    <p className="text-xs font-semibold text-emerald-200">Quick Access</p>
+                  <div className="xl:col-span-4 rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
+                    <p className="text-xs font-semibold text-primary">Quick Access</p>
                     <div className="mt-4 grid gap-3">
                       {[
                         { href: "/innovation", icon: "science", title: "Research Papers", count: researchFeed.length, hint: "Latest publications and innovation signals" },
@@ -491,15 +344,15 @@ export default function Home() {
                         <Link
                           key={card.title}
                           href={card.href}
-                          className="group relative overflow-hidden rounded-xl border border-white/10 bg-zinc-800/35 px-4 py-3 hover:border-emerald-300/40 hover:bg-zinc-700/35 transition-all"
+                          className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 hover:border-primary/40 hover:bg-white/[0.06] transition-all"
                         >
-                          <div className="absolute inset-0 bg-linear-to-r from-emerald-300/15 via-zinc-200/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div className="absolute inset-0 bg-linear-to-r from-primary/15 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                           <div className="relative flex items-start gap-3">
-                            <span className="material-symbols-outlined text-emerald-200 text-[18px] mt-0.5">{card.icon}</span>
+                            <span className="material-symbols-outlined text-primary text-[18px] mt-0.5">{card.icon}</span>
                             <div>
                               <p className="text-sm font-bold text-white">{card.title}</p>
-                              <p className="text-[11px] text-zinc-300/80">{card.count} cards live now</p>
-                              <p className="text-[11px] text-zinc-400 mt-1">{card.hint}</p>
+                              <p className="text-[11px] text-on-surface-variant/80">{card.count} cards live now</p>
+                              <p className="text-[11px] text-on-surface-variant/60 mt-1">{card.hint}</p>
                             </div>
                           </div>
                         </Link>
@@ -512,12 +365,17 @@ export default function Home() {
                       <Link
                         key={`research-${item.id}`}
                         href={`/innovation?tab=research&story=${encodeURIComponent(item.id)}`}
-                        className="group relative overflow-hidden rounded-xl border border-white/10 bg-zinc-900/35 p-4 hover:border-emerald-300/40 transition-all"
+                        className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-4 hover:border-primary/40 transition-all"
                       >
-                        <div className="absolute inset-0 bg-linear-to-br from-emerald-400/20 via-zinc-300/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <p className="relative text-[10px] uppercase tracking-[0.16em] text-emerald-200 font-semibold">Research</p>
+                        <div className="absolute inset-0 bg-linear-to-br from-primary/15 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <p className="relative text-[10px] uppercase tracking-[0.16em] text-primary font-semibold">Research</p>
                         <h3 className="relative mt-2 text-sm font-bold text-white line-clamp-2">{item.title}</h3>
-                        <p className="relative mt-2 text-xs text-zinc-300/80 line-clamp-3">{item.summary}</p>
+                        <p className="relative mt-2 text-xs text-on-surface-variant/80 line-clamp-2">{item.summary}</p>
+                        <div className="relative mt-2 flex items-center gap-2 text-[10px] text-on-surface-variant/60">
+                          {item.sourceName && <span className="truncate max-w-30">{item.sourceName}</span>}
+                          {item.sourceName && item.publishedAt && <span>•</span>}
+                          {item.publishedAt && <span>{new Date(item.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+                        </div>
                       </Link>
                     ))}
 
@@ -527,12 +385,17 @@ export default function Home() {
                         href={item.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group relative overflow-hidden rounded-xl border border-white/10 bg-zinc-900/35 p-4 hover:border-emerald-300/35 transition-all"
+                        className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-4 hover:border-secondary/35 transition-all"
                       >
-                        <div className="absolute inset-0 bg-linear-to-br from-zinc-200/12 via-emerald-200/8 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <p className="relative text-[10px] uppercase tracking-[0.16em] text-zinc-200 font-semibold">World News</p>
+                        <div className="absolute inset-0 bg-linear-to-br from-white/8 via-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <p className="relative text-[10px] uppercase tracking-[0.16em] text-secondary font-semibold">World News</p>
                         <h3 className="relative mt-2 text-sm font-bold text-white line-clamp-2">{item.title}</h3>
-                        <p className="relative mt-2 text-xs text-zinc-300/80 line-clamp-3">{item.summary}</p>
+                        <p className="relative mt-2 text-xs text-on-surface-variant/80 line-clamp-2">{item.summary}</p>
+                        <div className="relative mt-2 flex items-center gap-2 text-[10px] text-on-surface-variant/60">
+                          {item.sourceName && <span className="truncate max-w-30">{item.sourceName}</span>}
+                          {item.sourceName && item.publishedAt && <span>•</span>}
+                          {item.publishedAt && <span>{new Date(item.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}
+                        </div>
                       </a>
                     ))}
 
@@ -540,14 +403,15 @@ export default function Home() {
                       <Link
                         key={`forum-${topic.id}`}
                         href={`/forum/topic/${topic.id}`}
-                        className="group relative overflow-hidden rounded-xl border border-white/10 bg-zinc-900/35 p-4 hover:border-emerald-300/35 transition-all"
+                        className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-4 hover:border-tertiary/35 transition-all"
                       >
-                        <div className="absolute inset-0 bg-linear-to-br from-green-400/14 via-zinc-300/8 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        <p className="relative text-[10px] uppercase tracking-[0.16em] text-green-200 font-semibold">
+                        <div className="absolute inset-0 bg-linear-to-br from-tertiary/12 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <p className="relative text-[10px] uppercase tracking-[0.16em] text-tertiary font-semibold flex items-center gap-1">
+                          {topic.forum_categories?.icon && <span className="material-symbols-outlined text-[12px]">{topic.forum_categories.icon}</span>}
                           {topic.forum_categories?.name || "Forum Topic"}
                         </p>
                         <h3 className="relative mt-2 text-sm font-bold text-white line-clamp-2">{topic.title}</h3>
-                        <p className="relative mt-2 text-xs text-zinc-300/80">
+                        <p className="relative mt-2 text-xs text-on-surface-variant/80">
                           {topic.reply_count} replies • {topic.like_count} likes
                         </p>
                       </Link>
@@ -562,40 +426,53 @@ export default function Home() {
         {/* Blog Theme Showcase */}
         <section className="py-20 px-4 sm:px-8">
           <div className="max-w-7xl mx-auto reveal-on-scroll">
-            <div className="relative overflow-hidden border border-emerald-400/15 bg-[linear-gradient(135deg,rgba(5,20,12,0.95),rgba(8,38,22,0.85)_40%,rgba(12,30,35,0.78))]  p-6 sm:p-10">
-              <div className="absolute -top-20 right-8 w-64 h-64 rounded-full bg-emerald-400/8 blur-3xl" />
-              <div className="absolute -bottom-16 left-16 w-56 h-56 rounded-full bg-teal-400/6 blur-3xl" />
+              <div className="relative overflow-hidden border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 sm:p-10">
+              <div className="absolute -top-20 right-8 w-64 h-64 rounded-full bg-primary/6 blur-3xl" />
+              <div className="absolute -bottom-16 left-16 w-56 h-56 rounded-full bg-secondary/5 blur-3xl" />
 
               <div className="relative flex items-center justify-between gap-4 flex-wrap mb-8">
                 <div>
-                  <span className="text-[10px] font-bold tracking-[0.25em] text-emerald-300/90 uppercase block mb-2">Theme Gallery</span>
-                  <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tighter text-white">200+ Blog Themes Across 20 Categories</h2>
-                  <p className="text-sm text-emerald-100/60 mt-2 max-w-2xl">
+                  <span className="text-[10px] font-bold tracking-[0.25em] text-on-surface-variant uppercase block mb-2">Theme Gallery</span>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tighter text-white">340+ Blog Themes Across 30 Categories</h2>
+                  <p className="text-sm text-on-surface-variant/70 mt-2 max-w-2xl">
                     Professional editorial palettes for every niche — from business to photography, code to culinary. Pick a theme and start writing instantly.
                   </p>
                 </div>
-                <Button asChild variant="outline" className="border-emerald-300/30 text-emerald-100 hover:bg-emerald-300/10">
+                <Button asChild variant="outline" className="border-white/20 text-on-surface-variant hover:bg-white/10">
                   <Link href="/blog-themes">View All Themes →</Link>
                 </Button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 relative">
                 {[
-                  { name: "Sahara Executive", cat: "Business", desc: "Warm tones for corporate storytelling and thought leadership.", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400&h=500&fit=crop&q=80" },
-                  { name: "Neon Circuit", cat: "Technology", desc: "Futuristic neon palette for tech blogs and startup chronicles.", image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&h=340&fit=crop&q=80" },
-                  { name: "Cosmos", cat: "Science", desc: "Deep space aesthetic for research papers and scientific discovery.", image: "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=400&h=440&fit=crop&q=80" },
-                  { name: "Dark Gallery", cat: "Photography", desc: "Moody gallery layout to showcase visual portfolios and photo essays.", image: "https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=400&h=360&fit=crop&q=80" },
-                  { name: "Dracula Code", cat: "Code Space", desc: "Syntax-highlighted dark theme for developer tutorials and docs.", image: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=400&h=380&fit=crop&q=80" },
-                  { name: "Zen Garden", cat: "Wellness", desc: "Serene greens and soft tones for mindfulness and health content.", image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=480&fit=crop&q=80" },
-                  { name: "Fire Kitchen", cat: "Culinary", desc: "Bold warm palette for recipes, food reviews, and culinary arts.", image: "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=400&h=340&fit=crop&q=80" },
-                  { name: "Compass", cat: "Travel", desc: "Adventure-ready layout for travel journals and destination guides.", image: "https://images.unsplash.com/photo-1488085061387-422e29b40080?w=400&h=420&fit=crop&q=80" },
-                  { name: "Ledger Noir", cat: "Finance", desc: "Clean, data-driven layout for fintech analysis and market commentary.", image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=400&h=400&fit=crop&q=80" },
-                  { name: "Canvas Bloom", cat: "Art & Design", desc: "Creative palette for digital art showcases and design case studies.", image: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=400&h=440&fit=crop&q=80" },
-                  { name: "Scholar Press", cat: "Education", desc: "Academic-focused theme for courses, tutorials, and learning resources.", image: "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=400&h=380&fit=crop&q=80" },
-                  { name: "Pulse Beat", cat: "Music", desc: "Rhythm-inspired layout for album reviews, playlists, and artist spotlights.", image: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=400&h=420&fit=crop&q=80" },
-                  { name: "Green Thread", cat: "Sustainability", desc: "Eco-conscious design for environmental stories and green innovation.", image: "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=400&h=460&fit=crop&q=80" },
+                  { name: "Sahara Executive", cat: "Business", desc: "Warm tones for corporate storytelling and thought leadership.", image: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=400&h=500&fit=crop&q=80", font: "'Playfair Display', Georgia, serif", fontLabel: "Playfair Display", accent: "#c99a5b" },
+                  { name: "Neon Circuit", cat: "Technology", desc: "Futuristic neon palette for tech blogs and startup chronicles.", image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&h=340&fit=crop&q=80", font: "'JetBrains Mono', 'Fira Code', monospace", fontLabel: "JetBrains Mono", accent: "#00f0ff" },
+                  { name: "Cosmos", cat: "Science", desc: "Deep space aesthetic for research papers and scientific discovery.", image: "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=400&h=440&fit=crop&q=80", font: "'Space Grotesk', 'Inter', sans-serif", fontLabel: "Space Grotesk", accent: "#7c6cf0" },
+                  { name: "Dark Gallery", cat: "Photography", desc: "Moody gallery layout to showcase visual portfolios and photo essays.", image: "https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=400&h=360&fit=crop&q=80", font: "'Lora', Georgia, serif", fontLabel: "Lora", accent: "#d4944c" },
+                  { name: "Dracula Code", cat: "Code Space", desc: "Syntax-highlighted dark theme for developer tutorials and docs.", image: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=400&h=380&fit=crop&q=80", font: "'Fira Code', monospace", fontLabel: "Fira Code", accent: "#58a6ff" },
+                  { name: "Zen Garden", cat: "Wellness", desc: "Serene greens and soft tones for mindfulness and health content.", image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=400&h=480&fit=crop&q=80", font: "'Source Serif 4', Georgia, serif", fontLabel: "Source Serif 4", accent: "#4ade80" },
+                  { name: "Fire Kitchen", cat: "Culinary", desc: "Bold warm palette for recipes, food reviews, and culinary arts.", image: "https://images.unsplash.com/photo-1482049016688-2d3e1b311543?w=400&h=340&fit=crop&q=80", font: "'Merriweather', Georgia, serif", fontLabel: "Merriweather", accent: "#f97316" },
+                  { name: "Compass", cat: "Travel", desc: "Adventure-ready layout for travel journals and destination guides.", image: "https://images.unsplash.com/photo-1488085061387-422e29b40080?w=400&h=420&fit=crop&q=80", font: "'Nunito Sans', sans-serif", fontLabel: "Nunito Sans", accent: "#38bdf8" },
+                  { name: "Marble Estate", cat: "Real Estate", desc: "Luxurious tones for property showcases and architectural stories.", image: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&h=400&fit=crop&q=80", font: "'Cormorant Garamond', Georgia, serif", fontLabel: "Cormorant Garamond", accent: "#4d8ef7" },
+                  { name: "Brutalist", cat: "Architecture", desc: "Raw concrete geometry for structural design and interiors.", image: "https://images.unsplash.com/photo-1487958449943-2429e8be8625?w=400&h=440&fit=crop&q=80", font: "'Montserrat', sans-serif", fontLabel: "Montserrat", accent: "#c8b890" },
+                  { name: "Runway", cat: "Fashion", desc: "Sleek editorial for haute couture and lifestyle storytelling.", image: "https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=380&fit=crop&q=80", font: "'Poppins', sans-serif", fontLabel: "Poppins", accent: "#f472b6" },
+                  { name: "Neon Arena", cat: "Gaming", desc: "High-energy neon for esports, game reviews, and streaming.", image: "https://images.unsplash.com/photo-1542751371-adc38448a05e?w=400&h=420&fit=crop&q=80", font: "'Orbitron', sans-serif", fontLabel: "Orbitron", accent: "#a855f7" },
+                  { name: "Speedline", cat: "Automotive", desc: "Performance-driven layout for motorsport and car culture.", image: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=400&h=400&fit=crop&q=80", font: "'Rajdhani', sans-serif", fontLabel: "Rajdhani", accent: "#ef4444" },
+                  { name: "Arena", cat: "Sports", desc: "Bold athletic design for training, analysis, and competition.", image: "https://images.unsplash.com/photo-1461896836934-bd45ba8c5e78?w=400&h=460&fit=crop&q=80", font: "'Barlow', sans-serif", fontLabel: "Barlow", accent: "#06b6d4" },
+                  { name: "Old Growth", cat: "Environment", desc: "Eco-conscious design for conservation and sustainability.", image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=400&h=440&fit=crop&q=80", font: "'Libre Baskerville', Georgia, serif", fontLabel: "Libre Baskerville", accent: "#22c55e" },
+                  { name: "Gradient Wave", cat: "Social", desc: "Vibrant gradients for creators, influencers, and digital content.", image: "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=400&h=380&fit=crop&q=80", font: "'DM Sans', sans-serif", fontLabel: "DM Sans", accent: "#e040a0" },
+                  { name: "Parchment Chronicle", cat: "History", desc: "Aged warm tones for historical storytelling and cultural heritage.", image: "https://images.unsplash.com/photo-1461360370896-922624d12a74?w=400&h=400&fit=crop&q=80", font: "'Crimson Pro', Georgia, serif", fontLabel: "Crimson Pro", accent: "#d4a048" },
+                  { name: "Perception", cat: "Psychology", desc: "Deep purple tones for cognitive psychology and behavioral science.", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=420&fit=crop&q=80", font: "'Source Serif 4', Georgia, serif", fontLabel: "Source Serif 4", accent: "#b060e0" },
+                  { name: "Neural Net", cat: "AI & ML", desc: "Blue circuit aesthetic for deep learning and artificial intelligence.", image: "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=400&h=380&fit=crop&q=80", font: "'Space Grotesk', sans-serif", fontLabel: "Space Grotesk", accent: "#38bdf8" },
+                  { name: "Digital Ledger", cat: "Crypto", desc: "Gold and black for Bitcoin, blockchain, and Web3 analysis.", image: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?w=400&h=440&fit=crop&q=80", font: "'Rajdhani', sans-serif", fontLabel: "Rajdhani", accent: "#f59e0b" },
+                  { name: "Capitol Report", cat: "Politics", desc: "Authoritative style for political analysis and social commentary.", image: "https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=400&h=400&fit=crop&q=80", font: "'IBM Plex Serif', Georgia, serif", fontLabel: "IBM Plex Serif", accent: "#dc2626" },
+                  { name: "Growth Mindset", cat: "Self-Growth", desc: "Teal-forward theme for self-improvement and productivity.", image: "https://images.unsplash.com/photo-1493612276216-ee3925520721?w=400&h=380&fit=crop&q=80", font: "'Nunito Sans', sans-serif", fontLabel: "Nunito Sans", accent: "#14b8a6" },
+                  { name: "Workshop", cat: "DIY", desc: "Warm wood tones for maker projects, tutorials, and crafts.", image: "https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=400&h=420&fit=crop&q=80", font: "'Merriweather', Georgia, serif", fontLabel: "Merriweather", accent: "#ea580c" },
+                  { name: "Companion", cat: "Pets", desc: "Friendly theme for pet care, animal behavior, and vet science.", image: "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400&h=400&fit=crop&q=80", font: "'Poppins', sans-serif", fontLabel: "Poppins", accent: "#84cc16" },
+                  { name: "Nebula", cat: "Space", desc: "Deep cosmic purples for space exploration and astronomy.", image: "https://images.unsplash.com/photo-1462332420958-a33f540d6b5d?w=400&h=440&fit=crop&q=80", font: "'Orbitron', sans-serif", fontLabel: "Orbitron", accent: "#818cf8" },
+                  { name: "Symposium", cat: "Philosophy", desc: "Elegant theme for philosophical essays and intellectual discourse.", image: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=380&fit=crop&q=80", font: "'Cormorant Garamond', Georgia, serif", fontLabel: "Cormorant Garamond", accent: "#a78bfa" },
                 ].map((theme) => (
-                  <div key={theme.name} className="group relative block overflow-hidden border border-white/10 bg-black/30 hover:border-emerald-400/35 hover:bg-black/45 transition-all">
+                  <div key={theme.name} className="group relative block overflow-hidden border bg-black/30 hover:bg-black/45 transition-all" style={{ borderColor: `${theme.accent}25` }}>
                     <div className="h-44 overflow-hidden relative">
                       <Image
                         src={theme.image}
@@ -607,20 +484,22 @@ export default function Home() {
                       <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/35 to-transparent" />
                       {/* Hover overlay with description + View Detail */}
                       <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-center p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                        <p className="text-xs text-emerald-100/90 leading-relaxed mb-4">{theme.desc}</p>
+                        <p className="text-xs leading-relaxed mb-3" style={{ fontFamily: theme.font, color: `${theme.accent}dd` }}>{theme.desc}</p>
+                        <span className="text-[9px] uppercase tracking-widest mb-3" style={{ color: `${theme.accent}99` }}>Font: {theme.fontLabel}</span>
                         <Link
                           href="/blog-themes"
-                          className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider border border-emerald-400/50 text-emerald-300 rounded-md hover:bg-emerald-400/20 transition-colors"
+                          className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-wider transition-colors"
+                          style={{ borderWidth: 1, borderStyle: "solid", borderColor: `${theme.accent}80`, color: theme.accent }}
                         >
                           View Detail
                         </Link>
                       </div>
                     </div>
                     <div className="absolute bottom-8 left-0 right-0 p-3 pointer-events-none">
-                      <span className="text-[8px] font-bold uppercase tracking-[0.2em] text-emerald-300/80 block mb-0.5">{theme.cat}</span>
-                      <span className="text-xs font-bold text-white leading-tight">{theme.name}</span>
+                      <span className="text-[8px] font-bold uppercase tracking-[0.2em] block mb-0.5" style={{ color: `${theme.accent}cc` }}>{theme.cat}</span>
+                      <span className="text-xs font-bold text-white leading-tight" style={{ fontFamily: theme.font }}>{theme.name}</span>
                     </div>
-                    <div className="border-t border-white/10 px-3 py-2 text-[11px] text-emerald-100/75 bg-black/45">
+                    <div className="border-t px-3 py-2 text-[11px] bg-black/45" style={{ borderColor: `${theme.accent}20`, color: `${theme.accent}bb`, fontFamily: theme.font }}>
                       Open this theme in editor
                     </div>
                   </div>
@@ -630,58 +509,8 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Newsletter Section */}
-        <section id="newsletter" className="py-20 sm:py-28 px-4 sm:px-8 bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.12),transparent_45%),linear-gradient(165deg,rgba(59,130,246,0.08),rgba(0,0,0,0))]">
-          <div className="max-w-3xl mx-auto text-center reveal-on-scroll">
-            <span className="text-[10px] font-bold tracking-[0.2em] text-on-surface-variant uppercase block mb-4">Stay Informed</span>
-            <h2 className="text-4xl sm:text-5xl font-extrabold font-headline tracking-tighter mb-4">
-              Join Our <span className="text-gradient">Newsletter</span>
-            </h2>
-            <p className="text-on-surface-variant mb-8 max-w-lg mx-auto">
-              Get the latest AI-powered editorial insights, career tips, and platform updates delivered straight to your inbox. No spam, ever.
-            </p>
-
-            <form onSubmit={handleNewsletter} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-              <Input
-                type="email"
-                value={newsletterEmail}
-                onChange={(e) => setNewsletterEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="flex-1 px-5 py-3.5 h-auto rounded-xl bg-surface-container-low border-outline-variant/20 text-sm text-on-surface placeholder:text-on-surface-variant/50 focus-visible:ring-primary/50"
-                required
-              />
-              <Button
-                type="submit"
-                disabled={newsletterStatus === "loading"}
-                className="px-8 py-3.5 h-auto bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl text-sm hover:scale-[1.02] transition-all shadow-lg shadow-primary/20"
-              >
-                {newsletterStatus === "loading" ? "Subscribing..." : "Subscribe"}
-              </Button>
-            </form>
-
-            {newsletterStatus === "success" && (
-              <p className="mt-4 text-green-400 text-sm flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-sm">check_circle</span>
-                {newsletterMessage}
-              </p>
-            )}
-            {newsletterStatus === "error" && (
-              <p className="mt-4 text-error text-sm flex items-center justify-center gap-2">
-                <span className="material-symbols-outlined text-sm">error</span>
-                {newsletterMessage}
-              </p>
-            )}
-
-            <div className="mt-8 flex justify-center gap-8 text-[10px] uppercase tracking-wider text-on-surface-variant">
-              <Badge variant="outline" className="border-transparent gap-2"><span className="material-symbols-outlined text-primary text-sm">check_circle</span> Free forever</Badge>
-              <Badge variant="outline" className="border-transparent gap-2"><span className="material-symbols-outlined text-primary text-sm">check_circle</span> Weekly digest</Badge>
-              <Badge variant="outline" className="border-transparent gap-2"><span className="material-symbols-outlined text-primary text-sm">check_circle</span> Unsubscribe anytime</Badge>
-            </div>
-          </div>
-        </section>
-
         {/* Beyond a Platform - Career Engine */}
-        <section className="py-20 sm:py-28 px-4 sm:px-8 bg-[linear-gradient(180deg,rgba(59,130,246,0.06),rgba(16,185,129,0.04)_45%,transparent)]">
+        <section className="py-20 sm:py-28 px-4 sm:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start reveal-on-scroll">
               <div>

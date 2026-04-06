@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { logActivity } from '@/lib/activity-log';
 import { logAdminAction } from '@/lib/admin-audit';
 import { sendPublishAnnouncementEmail } from '@/lib/mailer';
+import { verifyAdminSessionCookie } from '@/lib/admin-auth';
 
 function isMissingColumnError(error: unknown, column: string): boolean {
   const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
@@ -36,22 +37,11 @@ async function verifyAdmin(request: NextRequest) {
       if (profile?.role === 'admin') return userId;
     }
   } catch {
-    // continue to OTP fallback
+    // continue to cookie fallback
   }
 
-  try {
-    const adminSessionToken = request.cookies.get('admin_session_token')?.value;
-    if (adminSessionToken) {
-      const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').toLowerCase();
-      const decoded = Buffer.from(adminSessionToken, 'base64').toString('utf8');
-      const [email] = decoded.split(':');
-      if (email?.toLowerCase() === adminEmail) {
-        return email;
-      }
-    }
-  } catch {
-    // continue to OTP fallback
-  }
+  const adminEmail = verifyAdminSessionCookie(request);
+  if (adminEmail) return adminEmail;
 
   try {
     const supabase = await createClient();
@@ -227,18 +217,37 @@ export async function PATCH(
         isMissingColumnError(result.error, 'approved_at')
       )
     ) {
-      const fallbackData = { ...updateData };
-      delete fallbackData.category;
-      delete fallbackData.approval_status;
-      delete fallbackData.approved_by;
-      delete fallbackData.approved_at;
+      // Progressive fallback: first try without just 'category'
+      const fallback1 = { ...updateData };
+      delete fallback1.category;
 
       result = await supabase
         .from('posts')
-        .update(fallbackData)
+        .update(fallback1)
         .eq('id', id)
         .select('id, title, slug, excerpt, status, author_id, created_at, views, ai_generated, topic, profiles(id, name, avatar_url)')
         .single();
+
+      // If still failing due to approval columns, strip those too
+      if (
+        result.error && (
+          isMissingColumnError(result.error, 'approval_status') ||
+          isMissingColumnError(result.error, 'approved_by') ||
+          isMissingColumnError(result.error, 'approved_at')
+        )
+      ) {
+        const fallback2 = { ...fallback1 };
+        delete fallback2.approval_status;
+        delete fallback2.approved_by;
+        delete fallback2.approved_at;
+
+        result = await supabase
+          .from('posts')
+          .update(fallback2)
+          .eq('id', id)
+          .select('id, title, slug, excerpt, status, author_id, created_at, views, ai_generated, topic, profiles(id, name, avatar_url)')
+          .single();
+      }
     }
 
     if (result.error) {

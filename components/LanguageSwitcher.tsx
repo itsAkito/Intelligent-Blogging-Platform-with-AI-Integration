@@ -6,9 +6,11 @@ import { LOCALES, LOCALE_LABELS, LOCALE_COOKIE, DEFAULT_LOCALE, type Locale } fr
 export default function LanguageSwitcher() {
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState<Locale>(DEFAULT_LOCALE);
+  const [mounted, setMounted] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setMounted(true);
     const match = document.cookie.match(
       new RegExp(`(?:^|; )${LOCALE_COOKIE}=([^;]+)`)
     );
@@ -34,6 +36,18 @@ export default function LanguageSwitcher() {
     setCurrent(locale);
     setOpen(false);
     window.location.reload();
+  }
+
+  // Avoid hydration mismatch from browser extensions injecting attributes (e.g. fdprocessedid)
+  if (!mounted) {
+    return (
+      <div className="relative">
+        <div className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-foreground/70">
+          <span className="text-base leading-none">🌐</span>
+          <span>{LOCALE_LABELS[DEFAULT_LOCALE]}</span>
+        </div>
+      </div>
+    );
   }
 
   return (

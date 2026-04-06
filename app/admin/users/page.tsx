@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import AdminSideNav from "@/components/AdminSideNav";
-import AdminTopNav from "@/components/AdminTopNav";
+import dynamic from "next/dynamic";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+
+const AdminSideNav = dynamic(() => import("@/components/AdminSideNav"), { ssr: false });
+const AdminTopNav = dynamic(() => import("@/components/AdminTopNav"), { ssr: false });
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 

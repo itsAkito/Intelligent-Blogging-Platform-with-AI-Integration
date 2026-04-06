@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@/utils/supabase/server';
+import { verifyAdminSessionCookie } from '@/lib/admin-auth';
 
 async function verifyAdmin(request: NextRequest) {
   try {
@@ -21,20 +22,8 @@ async function verifyAdmin(request: NextRequest) {
     // Continue to cookie fallback.
   }
 
-  try {
-    const adminSessionToken = request.cookies.get('admin_session_token')?.value;
-    if (!adminSessionToken) return null;
-
-    const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').toLowerCase();
-    const decoded = Buffer.from(adminSessionToken, 'base64').toString('utf8');
-    const [email] = decoded.split(':');
-
-    if (email?.toLowerCase() === adminEmail) {
-      return email;
-    }
-  } catch {
-    return null;
-  }
+  const adminEmail = verifyAdminSessionCookie(request);
+  if (adminEmail) return adminEmail;
 
   return null;
 }
@@ -64,7 +53,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      const safe = search.replace(/[,.()'"\\ ]/g, ' ').trim();
+      const safe = search.replace(/[,.()'"\\]/g, '').trim().replace(/[%_]/g, '\\$&');
       if (safe) {
         query = query.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content.ilike.%${safe}%,topic.ilike.%${safe}%,category.ilike.%${safe}%`);
       }

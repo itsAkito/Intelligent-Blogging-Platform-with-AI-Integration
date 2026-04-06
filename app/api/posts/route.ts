@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getAuthUserId } from '@/lib/auth-helpers';
 import { logActivity } from '@/lib/activity-log';
+import { cacheGet, cacheSet } from '@/lib/cache';
 
 // Sanitize user input for PostgREST filter strings
 function sanitizeFilterInput(input: string): string {
@@ -22,6 +23,13 @@ function isMissingCategoryColumn(error: unknown): boolean {
   const message = typeof error === 'object' && error !== null ? (error as { message?: string }).message : undefined;
   if (code !== 'PGRST204' && code !== '42703') return false;
   return typeof message === 'string' && message.toLowerCase().includes('category');
+}
+
+function isMissingApprovalColumn(error: unknown): boolean {
+  const code = typeof error === 'object' && error !== null ? (error as { code?: string }).code : undefined;
+  const message = typeof error === 'object' && error !== null ? (error as { message?: string }).message : undefined;
+  if (code !== 'PGRST204' && code !== '42703') return false;
+  return typeof message === 'string' && message.toLowerCase().includes('approval_status');
 }
 
 function isMissingBlogThemeColumn(error: unknown): boolean {
@@ -99,6 +107,17 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const authUserId = await getAuthUserId(request);
     const isAdminSession = hasAdminSessionCookie(request);
+
+    // Fast path: serve cached published listings for anonymous users
+    const isAnonymousPublishedList = published && !authUserId && !search && !userId && !topic && !category && !status;
+    if (isAnonymousPublishedList) {
+      const cached = await cacheGet<{ posts: unknown[]; total: number; pagination: unknown }>(`posts:pub:${page}:${limit}`);
+      if (cached) {
+        return NextResponse.json(cached, {
+          headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' },
+        });
+      }
+    }
 
     // Validate Supabase is configured
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY.includes('placeholder')) {
@@ -207,6 +226,42 @@ export async function GET(request: NextRequest) {
       data = fallbackResult.data as any;
       count = fallbackResult.count ?? 0;
       error = fallbackResult.error as any;
+    }
+
+    // If approval_status column doesn't exist, retry without the approval filter
+    if (error && isMissingApprovalColumn(error)) {
+      let noApprovalQuery = supabase
+        .from('posts')
+        .select('*, profiles(id, name, avatar_url)', { count: 'exact' });
+
+      if (published || !canSeeUnpublished) {
+        noApprovalQuery = noApprovalQuery.eq('status', 'published');
+      } else if (status && canSeeUnpublished) {
+        noApprovalQuery = noApprovalQuery.eq('status', status);
+      }
+
+      if (userId) {
+        noApprovalQuery = noApprovalQuery.eq('author_id', userId);
+      }
+
+      if (search) {
+        const safe = sanitizeFilterInput(search);
+        if (safe) {
+          noApprovalQuery = noApprovalQuery.or(`title.ilike.%${safe}%,excerpt.ilike.%${safe}%,content.ilike.%${safe}%,topic.ilike.%${safe}%`);
+        }
+      }
+
+      if (topic) {
+        noApprovalQuery = noApprovalQuery.eq('topic', topic);
+      }
+
+      const noApprovalResult = await noApprovalQuery
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      data = noApprovalResult.data as any;
+      count = noApprovalResult.count ?? 0;
+      error = noApprovalResult.error as any;
     }
 
     if (error) {
@@ -320,7 +375,14 @@ export async function GET(request: NextRequest) {
         totalPages: Math.ceil(total / limit),
       },
     });
-    response.headers.set('Cache-Control', 'no-store');
+
+    // Cache published anonymous listing requests (most common public page loads)
+    if (isAnonymousPublishedList) {
+      response.headers.set('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
+      cacheSet(`posts:pub:${page}:${limit}`, { posts: orderedPosts, total, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }, 30).catch(() => {});
+    } else {
+      response.headers.set('Cache-Control', 'no-store');
+    }
     return response;
   } catch (error) {
     console.error('Get posts error:', error);
@@ -363,9 +425,9 @@ export async function POST(request: NextRequest) {
     const scheduledDate = scheduled_for ? new Date(scheduled_for) : null;
     const isScheduled = scheduledDate && scheduledDate > new Date();
     const resolvedStatus = isScheduled ? 'scheduled' : (published ? 'published' : (status || 'draft'));
-    const resolvedApproval = isAdminCreator
-      ? (resolvedStatus === 'published' ? 'approved' : 'pending')
-      : 'pending';
+    // Admin-created posts are always pre-approved — no self-approval loop
+    const resolvedApproval = isAdminCreator ? 'approved' : 'pending';
+    const nowISO = new Date().toISOString();
 
     const slug = title
       .toLowerCase()
@@ -384,6 +446,9 @@ export async function POST(request: NextRequest) {
         slug,
         status: resolvedStatus,
         approval_status: resolvedApproval,
+        approved_at: isAdminCreator ? nowISO : null,
+        approved_by: isAdminCreator ? userId : null,
+        published_at: resolvedStatus === 'published' ? nowISO : null,
         ai_generated: isAiGenerated,
         topic: topic || null,
         category: category || null,
@@ -405,6 +470,9 @@ export async function POST(request: NextRequest) {
           slug,
           status: resolvedStatus,
           approval_status: resolvedApproval,
+          approved_at: isAdminCreator ? nowISO : null,
+          approved_by: isAdminCreator ? userId : null,
+          published_at: resolvedStatus === 'published' ? nowISO : null,
           ai_generated: isAiGenerated,
           topic: topic || null,
         }])

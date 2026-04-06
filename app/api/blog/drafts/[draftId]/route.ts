@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 /**
  * PATCH /api/blog/drafts/[draftId]
@@ -12,7 +12,7 @@ export async function PATCH(
 ) {
   try {
     const { draftId } = await params;
-    const { userId } = await auth();
+    const userId = await getAuthUserId(req);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -123,7 +123,7 @@ export async function GET(
 ) {
   try {
     const { draftId } = await params;
-    const { userId } = await auth();
+    const userId = await getAuthUserId(_req);
 
     const supabase = await createClient();
 
@@ -165,7 +165,7 @@ export async function DELETE(
 ) {
   try {
     const { draftId } = await params;
-    const { userId } = await auth();
+    const userId = await getAuthUserId(_req);
 
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

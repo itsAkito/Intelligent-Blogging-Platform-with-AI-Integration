@@ -1,7 +1,6 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -10,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
 export default function AdminLoginPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const publicAdminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "";
   const [email, setEmail] = useState("");
@@ -46,10 +44,8 @@ export default function AdminLoginPage() {
       }
 
       const nextPath = searchParams.get("next");
-      const target = nextPath && nextPath.startsWith("/admin") ? nextPath : "/admin";
-
-      router.push(target);
-      router.refresh();
+      // Full page reload ensures fresh cookie state and AuthContext re-initialization
+      window.location.href = nextPath || "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

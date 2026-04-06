@@ -396,3 +396,128 @@ Format the entire response in markdown with proper structure.`;
     }
   }, 'high'); // High priority for streaming
 }
+
+// ── AI Copilot Actions ────────────────────────────────────────────────────────
+
+export type CopilotAction =
+  | 'rewrite'
+  | 'expand'
+  | 'summarize'
+  | 'grammar'
+  | 'seo'
+  | 'brainstorm'
+  | 'tone-adjust'
+  | 'chat';
+
+const COPILOT_SYSTEM_PROMPTS: Record<CopilotAction, string> = {
+  rewrite: `You are an expert editor. Rewrite the given text to improve clarity, flow, and impact while preserving the original meaning. Return ONLY the rewritten text with no preamble.`,
+  expand: `You are an expert blog writer. Expand the given text with more detail, examples, and depth. Add 2-3 paragraphs of supporting content. Use markdown formatting. Return ONLY the expanded text.`,
+  summarize: `You are a concise editor. Condense the given text into a tight, punchy summary that captures the key points. Return ONLY the summarized text.`,
+  grammar: `You are a professional proofreader. Fix all grammar, spelling, and punctuation errors in the given text. Also improve sentence structure where needed. Return the corrected text followed by a brief list of changes made, separated by "---".`,
+  seo: `You are an SEO expert for blog content. Analyze the given text and provide:
+1. **SEO Score** (0-100) with reasoning
+2. **Keyword suggestions** — primary and secondary keywords to target
+3. **Title optimization** — suggest an SEO-optimized title
+4. **Meta description** — write a compelling 155-character meta description
+5. **Improvements** — specific actionable changes to boost search ranking
+Format as clean markdown.`,
+  brainstorm: `You are a creative writing partner. Based on the given topic or partial content, generate 5-7 unique angles, subtopics, or directions the writer could explore. For each, provide a one-line description. Format as a numbered list.`,
+  'tone-adjust': `You are a writing style expert. Rewrite the given text to match the requested tone while keeping the core message. Return ONLY the adjusted text.`,
+  chat: `You are an AI writing assistant embedded in a blog editor. You help writers with their content — answering questions, providing suggestions, explaining concepts, and offering creative input. Be concise and practical. If the user shares content context, reference it in your response.`,
+};
+
+export async function generateCopilotResponse(
+  action: CopilotAction,
+  text: string,
+  context?: { fullContent?: string; tone?: string; title?: string }
+): Promise<string> {
+  const { client, provider } = getAIClient();
+  const modelName = getModelName(provider, 'flash'); // Use fast model for copilot
+
+  let systemPrompt = COPILOT_SYSTEM_PROMPTS[action];
+  if (action === 'tone-adjust' && context?.tone) {
+    systemPrompt += ` Target tone: ${context.tone}.`;
+  }
+
+  let userMessage = text;
+  if (action !== 'chat' && context?.fullContent) {
+    userMessage = `Context (full article):\n${context.fullContent.substring(0, 3000)}\n\n---\nText to process:\n${text}`;
+  }
+  if (action === 'chat' && context?.fullContent) {
+    userMessage = `[Current article title: "${context.title || 'Untitled'}"]\n[Article content (first 2000 chars): ${context.fullContent.substring(0, 2000)}]\n\nUser question: ${text}`;
+  }
+
+  return geminiRequestQueue.enqueue(async () => {
+    try {
+      const response = await client.chat.completions.create({
+        model: modelName,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: action === 'grammar' ? 0.3 : 0.7,
+        max_tokens: action === 'expand' ? 4096 : 2048,
+      });
+
+      const result = response.choices[0]?.message?.content;
+      if (!result) throw new Error('No response from AI');
+      return result;
+    } catch (error: any) {
+      // Try fallback model
+      const fallbackModel = getFallbackModelName(provider);
+      const response = await client.chat.completions.create({
+        model: fallbackModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        temperature: action === 'grammar' ? 0.3 : 0.7,
+        max_tokens: action === 'expand' ? 4096 : 2048,
+      });
+      const result = response.choices[0]?.message?.content;
+      if (!result) throw new Error(`Copilot failed: ${error.message}`);
+      return result;
+    }
+  }, 'high');
+}
+
+/**
+ * AI-powered skill analysis from a user's published blog posts.
+ * Identifies writing strengths, topic expertise, and suggested skills.
+ */
+export async function analyzeWriterSkills(
+  posts: { title: string; topic: string; content: string; views: number }[]
+): Promise<string> {
+  const { client, provider } = getAIClient();
+  const modelName = getModelName(provider, 'flash');
+
+  const postSummaries = posts.slice(0, 15).map((p, i) =>
+    `${i + 1}. "${p.title}" [Topic: ${p.topic || 'General'}] (${p.views} views) — ${p.content.substring(0, 200)}...`
+  ).join('\n');
+
+  const systemPrompt = `You are a career development AI for a blogging platform. Analyze a writer's published posts and return a JSON assessment.
+Return ONLY valid JSON with this structure:
+{
+  "skills": [{"name": "string", "level": "beginner"|"intermediate"|"advanced"|"expert", "confidence": 0-100}],
+  "strengths": ["string"],
+  "growth_areas": ["string"],
+  "recommended_badges": [{"id": "string", "name": "string", "reason": "string"}],
+  "career_stage": "novice"|"emerging"|"established"|"authority",
+  "next_steps": ["string"]
+}`;
+
+  return geminiRequestQueue.enqueue(async () => {
+    const response = await client.chat.completions.create({
+      model: modelName,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Analyze this writer's portfolio:\n\n${postSummaries}\n\nTotal posts: ${posts.length}` },
+      ],
+      temperature: 0.4,
+      max_tokens: 2048,
+    });
+    const result = response.choices[0]?.message?.content;
+    if (!result) throw new Error('No skill analysis generated');
+    return result;
+  }, 'normal');
+}

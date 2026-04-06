@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import AdminSideNav from "@/components/AdminSideNav";
-import AdminTopNav from "@/components/AdminTopNav";
+import dynamic from "next/dynamic";
 import { AiBadge } from "@/components/AiBadge";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
@@ -11,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+
+const AdminSideNav = dynamic(() => import("@/components/AdminSideNav"), { ssr: false });
+const AdminTopNav = dynamic(() => import("@/components/AdminTopNav"), { ssr: false });
 
 interface SystemStats {
   totalUsers: number;
@@ -63,6 +65,7 @@ export default function AdminPage() {
   const [recentComments, setRecentComments] = useState<RecentComment[]>([]);
   const [logsLoading, setLogsLoading] = useState(true);
   const [themeUsage, setThemeUsage] = useState<Array<{ theme: string; totalPosts: number; users: Array<{ id: string; name: string; avatar_url: string | null; postCount: number }> }>>([]);
+  const [authActivity, setAuthActivity] = useState<Array<{ id: string; user_id: string; activity_type: string; metadata: any; created_at: string; user?: { name: string; email: string } | null }>>([]);
   const [overview, setOverview] = useState<AdminOverview>({
     pendingPosts: 0,
     pendingComments: 0,
@@ -192,6 +195,18 @@ export default function AdminPage() {
           if (themeRes.ok) {
             const themeData = await themeRes.json();
             setThemeUsage(themeData.themes || []);
+          }
+        } catch { /* ignore */ }
+
+        // Fetch recent sign-up / sign-in activity
+        try {
+          const authRes = await fetch("/api/admin/activity?limit=20");
+          if (authRes.ok) {
+            const authData = await authRes.json();
+            const authEvents = (authData.activities || []).filter((a: any) =>
+              ['user_signup', 'user_signin', 'otp_signin', 'admin_login'].includes(a.activity_type)
+            );
+            setAuthActivity(authEvents);
           }
         } catch { /* ignore */ }
 
@@ -418,6 +433,60 @@ export default function AdminPage() {
                   ))}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* User Auth Activity Tracking */}
+        <div className="mt-8">
+          <Card className="bg-white/4 backdrop-blur-xl border-white/10 shadow-xl shadow-black/20">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-bold font-headline flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">person_add</span>
+                  Recent Sign-ups &amp; Sign-ins
+                </h3>
+                <Badge variant="outline" className="text-[10px]">{authActivity.length} events</Badge>
+              </div>
+              {authActivity.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">No sign-up/sign-in activity tracked yet.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-outline-variant/10">
+                        <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">User</th>
+                        <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Email</th>
+                        <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Event</th>
+                        <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Method</th>
+                        <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {authActivity.map((event) => (
+                        <tr key={event.id} className="border-b border-outline-variant/5 hover:bg-white/4 transition-colors">
+                          <td className="px-4 py-3 text-xs font-semibold">{event.user?.name || event.metadata?.name || "Unknown"}</td>
+                          <td className="px-4 py-3 text-xs text-on-surface-variant">{event.user?.email || event.metadata?.email || "-"}</td>
+                          <td className="px-4 py-3">
+                            <Badge variant="outline" className={`text-[10px] ${
+                              event.activity_type === 'user_signup' ? 'text-green-400 border-green-400/30' :
+                              event.activity_type === 'admin_login' ? 'text-purple-400 border-purple-400/30' :
+                              'text-blue-400 border-blue-400/30'
+                            }`}>
+                              {event.activity_type === 'user_signup' ? 'Sign Up' :
+                               event.activity_type === 'user_signin' ? 'Sign In (Clerk)' :
+                               event.activity_type === 'otp_signin' ? 'Sign In (OTP)' :
+                               event.activity_type === 'admin_login' ? 'Admin Login' : event.activity_type}
+                            </Badge>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-on-surface-variant capitalize">{event.metadata?.method || "-"}</td>
+                          <td className="px-4 py-3 text-xs text-on-surface-variant">{new Date(event.created_at).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import crypto from 'crypto';
+import { logActivity } from '@/lib/activity-log';
 
 export async function POST(request: NextRequest) {
   try {
@@ -197,6 +198,15 @@ export async function POST(request: NextRequest) {
       .from('profiles')
       .update({ email_verified: true, email_verified_at: new Date().toISOString() })
       .eq('id', targetProfileId);
+
+    // Track sign-in event
+    logActivity({
+      userId: targetProfileId,
+      activityType: 'otp_signin',
+      entityType: 'user',
+      entityId: targetProfileId,
+      metadata: { email: normalizedEmail, method: 'otp' },
+    }).catch(() => {});
 
     // Prepare user object to send to client
     const userData = {

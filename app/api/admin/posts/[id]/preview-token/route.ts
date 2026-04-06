@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createHmac } from 'crypto';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@/utils/supabase/server';
+import { verifyAdminSessionCookie } from '@/lib/admin-auth';
 
 async function verifyAdmin(request: NextRequest): Promise<boolean> {
   try {
@@ -17,16 +18,7 @@ async function verifyAdmin(request: NextRequest): Promise<boolean> {
     }
   } catch { /* continue */ }
 
-  try {
-    const token = request.cookies.get('admin_session_token')?.value;
-    if (token) {
-      const adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
-      const [email] = Buffer.from(token, 'base64').toString('utf8').split(':');
-      if (email?.toLowerCase() === adminEmail) return true;
-    }
-  } catch { /* continue */ }
-
-  return false;
+  return verifyAdminSessionCookie(request) !== null;
 }
 
 // Token TTL: 24 hours

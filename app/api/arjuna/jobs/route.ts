@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import { getAuthUserId } from '@/lib/auth-helpers';
 
 // Mock data for job listings - used when database is empty
 const MOCK_JOBS = [
@@ -674,14 +674,14 @@ export async function GET(request: NextRequest) {
 // POST new job listing (admin only)
 export async function POST(request: NextRequest) {
   try {
-    const clerkAuth = await auth();
+    const userId = await getAuthUserId(request);
     
     // Get user to verify admin status
     const supabase = await createClient();
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
-      .eq('id', clerkAuth.userId || '')
+      .eq('id', userId || '')
       .single();
 
     if (!profile || profile.role !== 'admin') {

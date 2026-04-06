@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createAdminClient } from '@/utils/supabase/server';
 import { auth } from '@clerk/nextjs/server';
+import { verifyAdminSessionCookie } from '@/lib/admin-auth';
 
 async function verifyAdmin(request?: NextRequest) {
   // Try Clerk auth first
@@ -13,21 +14,10 @@ async function verifyAdmin(request?: NextRequest) {
     }
   } catch {}
 
-  // Fall back to OTP session
+  // Fall back to HMAC-signed admin cookie
   if (request) {
-    try {
-      const adminSessionToken = request.cookies.get("admin_session_token")?.value;
-      if (adminSessionToken) {
-        const adminEmail = (process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL || '').toLowerCase();
-        const decoded = Buffer.from(adminSessionToken, 'base64').toString('utf8');
-        const [email] = decoded.split(':');
-        if (email?.toLowerCase() === adminEmail) {
-          return email;
-        }
-      }
-    } catch {
-      // continue to OTP fallback
-    }
+    const adminEmail = verifyAdminSessionCookie(request);
+    if (adminEmail) return adminEmail;
 
     try {
       const supabase = await createClient();

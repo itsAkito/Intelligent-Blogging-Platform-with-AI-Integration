@@ -20,6 +20,8 @@ Sentry.init({
     /Failed to fetch/i,
     /Network request failed/i,
     /Load failed/i,
+    /Failed to load Clerk/i,
+    /ClerkRuntimeError/i,
   ],
 
   beforeSend(event) {
@@ -36,3 +38,5 @@ Sentry.init({
     return event;
   },
 });
+
+export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

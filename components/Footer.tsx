@@ -2,47 +2,18 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import NewsletterForm from '@/components/NewsletterForm';
 
 export default function Footer() {
   return (
-    <footer className="w-full border-t border-white/5 bg-[#0a0a0a]">
-      {/* ─── Beyond a Platform — Career Engine ─── */}
+    <footer className="w-full border-t border-white/5 bg-[#0e0e0e]">
+      {/* ─── Newsletter Section ─── */}
       <div className="relative overflow-hidden border-b border-white/5">
-        {/* Transparent mixed gradient background */}
         <div className="absolute inset-0" style={{background: 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(139,92,246,0.06) 25%, transparent 50%, rgba(16,185,129,0.06) 75%, rgba(236,72,153,0.04) 100%)'}} />
-        <div className="absolute inset-0" style={{background: 'radial-gradient(ellipse at 20% 50%, rgba(59,130,246,0.12)0-*****************, transparent 60%), radial-gradient(ellipse at 80% 30%, rgba(139,92,246,0.08), transparent 50%)'}} />
+        <div className="absolute inset-0" style={{background: 'radial-gradient(ellipse at 20% 50%, rgba(59,130,246,0.12), transparent 60%), radial-gradient(ellipse at 80% 30%, rgba(139,92,246,0.08), transparent 50%)'}} />
 
-        <div className="relative max-w-7xl mx-auto px-6 sm:px-8 py-16">
-          <p className="text-[10px] uppercase tracking-[0.3em] text-primary/70 mb-3 font-bold">How It Works</p>
-          <h3 className="text-2xl sm:text-3xl font-extrabold font-headline tracking-tight text-on-surface mb-4">
-            Beyond a Platform. A Career Engine.
-          </h3>
-          <p className="text-sm text-on-surface-variant max-w-2xl mb-12">
-            From your first blog post to landing your dream role — AiBlog powers every step of your creative and professional journey.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[
-              { step: "01", icon: "edit_note", title: "Write with AI", desc: "Open the editor, pick from 200+ themed templates, and craft your story with AI-powered writing tools, slash commands, and smart formatting.", gradient: "from-blue-500/15 to-cyan-500/5" },
-              { step: "02", icon: "palette", title: "Style Your Brand", desc: "Choose typography, colors, and block variants from 10+ categories. Create custom themes or use curated editorial palettes for every niche.", gradient: "from-violet-500/15 to-purple-500/5" },
-              { step: "03", icon: "groups", title: "Build Community", desc: "Engage in forums, collaborate on posts with other writers, follow creators, join the Inner Circle, and grow your professional network.", gradient: "from-emerald-500/15 to-teal-500/5" },
-              { step: "04", icon: "rocket_launch", title: "Launch Your Career", desc: "Build a portfolio and resume, track analytics, explore job opportunities on our board, and get discovered by recruiters in your field.", gradient: "from-pink-500/15 to-rose-500/5" },
-            ].map((item) => (
-              <div key={item.step} className="group relative">
-                {/* Card with transparent bg */}
-                <div className={`relative overflow-hidden border border-white/8 bg-linear-to-br ${item.gradient} backdrop-blur-sm p-6 transition-all hover:border-white/15 hover:-translate-y-0.5`}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 border border-white/10 bg-surface-container/60 flex items-center justify-center">
-                      <span className="material-symbols-outlined text-lg text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-primary/50 tracking-[0.3em] uppercase">{item.step}</span>
-                  </div>
-                  <h4 className="text-sm font-bold text-on-surface mb-2 font-headline">{item.title}</h4>
-                  <p className="text-xs text-on-surface-variant leading-relaxed">{item.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="relative max-w-3xl mx-auto px-6 sm:px-8 py-16">
+          <NewsletterForm />
         </div>
       </div>
 

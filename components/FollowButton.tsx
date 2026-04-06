@@ -35,13 +35,15 @@ export default function FollowButton({
 
   // Check if current user is following this user
   useEffect(() => {
-    if (!isAuthenticated || user?.id === userId) return;
+    if (!isAuthenticated || !user?.id || user.id === userId) return;
 
     const checkFollowStatus = async () => {
       try {
-        const response = await fetch(`/api/follows?user_id=${userId}&type=followers`);
+        const response = await fetch(`/api/follows?user_id=${userId}&type=check`);
         if (response.ok) {
-          // Follow state sync can be expanded with explicit current-user checks if needed.
+          const data = await response.json();
+          setIsFollowing(!!data.isFollowing);
+          setIsPending(!!data.isPending);
         }
       } catch (error) {
         console.error("Error checking follow status:", error);
