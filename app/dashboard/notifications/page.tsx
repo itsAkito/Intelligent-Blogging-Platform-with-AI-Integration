@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Navbar from "@/components/NavBar";
-import SideNavBar from "@/components/SideNavBar";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -152,12 +150,8 @@ export default function DashboardNotificationsPage() {
   };
 
   return (
-    <ProtectedRoute>
-      <Navbar />
-      <div className="flex min-h-screen bg-background">
-        <SideNavBar activePage="notifications" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-4 sm:px-8">
-          <div className="max-w-4xl mx-auto">
+    <div className="px-4 sm:px-8">
+      <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h1 className="text-3xl font-extrabold font-headline text-on-surface">Notifications</h1>
@@ -241,9 +235,7 @@ export default function DashboardNotificationsPage() {
                 )}
               </CardContent>
             </Card>
-          </div>
-        </main>
       </div>
-    </ProtectedRoute>
+    </div>
   );
 }

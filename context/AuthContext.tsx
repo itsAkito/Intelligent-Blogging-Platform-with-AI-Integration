@@ -96,7 +96,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── Cookie path: try OTP session first, then admin cookie ───────────────
   const loadCookieSession = useCallback(async () => {
-    const hasOtpCookie = document.cookie.includes("otp_session_token=");
+    // otp_session_token is httpOnly — use the non-httpOnly companion flag
+    const hasOtpCookie = document.cookie.includes("otp_session=");
     // admin_session_token is httpOnly — use the non-httpOnly companion flag
     const hasAdminCookie = document.cookie.includes("admin_session_active=");
 
@@ -183,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // 3. Check for admin/OTP cookie sessions immediately — don't wait for Clerk
     const hasAdminCookie = document.cookie.includes("admin_session_active=");
-    const hasOtpCookie = document.cookie.includes("otp_session_token=");
+    const hasOtpCookie = document.cookie.includes("otp_session=");
 
     if (hasAdminCookie || hasOtpCookie) {
       loadCookieSession().catch(() => setLoading(false));

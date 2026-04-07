@@ -32,9 +32,9 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     // Calculate metrics
-    const totalPosts = posts?.length || 0;
-    const totalViews = posts?.reduce((sum: number, p: any) => sum + (p.views || 0), 0) || 0;
-    const totalLikes = posts?.reduce((sum: number, p: any) => sum + (p.likes_count || 0), 0) || 0;
+    const totalPosts = posts?.length ?? 0;
+    const totalViews = (posts ?? []).reduce((sum: number, p: any) => sum + (p.views || 0), 0);
+    const totalLikes = (posts ?? []).reduce((sum: number, p: any) => sum + (p.likes_count || 0), 0);
     const engagementRate = totalViews > 0 ? ((totalLikes / totalViews) * 100) : 0;
 
     // Get daily activity data for chart

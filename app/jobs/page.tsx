@@ -56,6 +56,7 @@ export default function JobsPage() {
         limit: "10",
       });
       const res = await fetch(`/api/jobs?${params}`);
+      if (!res.ok) throw new Error("Failed to fetch jobs");
       const data = await res.json();
       setJobs(data.jobs || []);
       setTotal(data.total || 0);

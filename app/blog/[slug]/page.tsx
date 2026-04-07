@@ -283,9 +283,12 @@ export default function BlogPostPage() {
       });
 
       if (res.ok) {
-        const { comment } = await res.json();
-        setComments([...comments, comment]);
-        setPost((prev) => prev ? { ...prev, comments_count: (prev.comments_count || 0) + 1 } : prev);
+        const data = await res.json();
+        const comment = data?.comment;
+        if (comment) {
+          setComments([...comments, comment]);
+          setPost((prev) => prev ? { ...prev, comments_count: (prev.comments_count || 0) + 1 } : prev);
+        }
         setCommentContent("");
         setCommentSuccess("Comment posted!");
         setTimeout(() => setCommentSuccess(""), 3000);
@@ -422,11 +425,16 @@ export default function BlogPostPage() {
   }
 
   const theme = resolvedTheme || getThemeById(post.blog_theme || "default");
+  const isCustom = theme.source === "custom";
+  const p = theme.palette;
 
   return (
     <>
       <Navbar />
-      <main className={`min-h-screen ${theme.bgClass} pt-20 pb-16 ${theme.fontClass}`}>
+      <main
+        className={`min-h-screen ${theme.fontClass} pt-20 pb-16 ${!isCustom ? theme.bgClass : ""}`}
+        style={isCustom ? { backgroundColor: p.background, color: p.text } : undefined}
+      >
         {/* Cover Image */}
         {post.cover_image_url && (
           <div className="w-full h-100 relative overflow-hidden">
@@ -439,14 +447,14 @@ export default function BlogPostPage() {
           {/* Header */}
           <header className={`${post.cover_image_url ? "-mt-24 relative z-20" : "mt-8"}`}>
             <div className="flex items-center gap-3 mb-4">
-              <Link href="/community" className={`${theme.linkClass} text-sm transition-colors flex items-center gap-1`}>
+              <Link href="/community" className={`text-sm transition-colors flex items-center gap-1 ${!isCustom ? theme.linkClass : ""}`} style={isCustom ? { color: p.accent } : undefined}>
                 <span className="material-symbols-outlined text-sm">arrow_back</span>
                 All Posts
               </Link>
               {post.topic && (
                 <>
                   <span className="opacity-30">/</span>
-                  <span className={`px-3 py-1 rounded-full ${theme.accentClass} bg-current/10 text-[10px] font-bold uppercase tracking-wider`}>
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${!isCustom ? theme.accentClass : ""}`} style={isCustom ? { color: p.accent, background: `${p.accent}1a` } : undefined}>
                     {post.topic}
                   </span>
                 </>
@@ -457,12 +465,12 @@ export default function BlogPostPage() {
                   AI Generated
                 </span>
               )}
-              <span className={`px-3 py-1 rounded-full ${theme.accentClass} bg-current/10 text-[10px] font-bold uppercase tracking-wider`}>
+              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${!isCustom ? theme.accentClass : ""}`} style={isCustom ? { color: p.accent, background: `${p.accent}1a` } : undefined}>
                 {theme.name}
               </span>
             </div>
 
-            <h1 className={`text-4xl md:text-5xl font-extrabold font-headline tracking-tighter ${theme.headingClass} leading-tight mb-6`}>
+            <h1 className={`text-4xl md:text-5xl font-extrabold font-headline tracking-tighter leading-tight mb-6 ${!isCustom ? theme.headingClass : ""}`} style={isCustom ? { color: p.heading || p.text } : undefined}>
               {post.title}
             </h1>
 
@@ -473,17 +481,17 @@ export default function BlogPostPage() {
                   {post.profiles?.avatar_url ? (
                     <Image src={post.profiles.avatar_url} alt="" width={40} height={40} className="w-full h-full object-cover" />
                   ) : (
-                    <div className={`w-full h-full flex items-center justify-center ${theme.textClass}`}>
+                    <div className={`w-full h-full flex items-center justify-center ${!isCustom ? theme.textClass : ""}`} style={isCustom ? { color: p.text } : undefined}>
                       <span className="material-symbols-outlined">person</span>
                     </div>
                   )}
                 </div>
                 <div>
-                  <span className={`font-semibold text-sm ${theme.headingClass}`}>{post.profiles?.name || "Unknown"}</span>
-                  <span className={`block text-xs ${theme.textClass}`}>{formatDate(post.created_at)}</span>
+                  <span className={`font-semibold text-sm ${!isCustom ? theme.headingClass : ""}`} style={isCustom ? { color: p.heading || p.text } : undefined}>{post.profiles?.name || "Unknown"}</span>
+                  <span className={`block text-xs ${!isCustom ? theme.textClass : ""}`} style={isCustom ? { color: p.mutedText || p.text } : undefined}>{formatDate(post.created_at)}</span>
                 </div>
               </div>
-              <div className={`flex items-center gap-4 text-xs ${theme.textClass}`}>
+              <div className={`flex items-center gap-4 text-xs ${!isCustom ? theme.textClass : ""}`} style={isCustom ? { color: p.mutedText || p.text } : undefined}>
                 <span className="flex items-center gap-1">
                   <span className="material-symbols-outlined text-sm">visibility</span>
                   {post.views} views
@@ -498,7 +506,7 @@ export default function BlogPostPage() {
                 </span>
               </div>
               {likers.length > 0 && (
-                <p className={`mt-3 text-xs ${theme.textClass}`}>
+                <p className={`mt-3 text-xs ${!isCustom ? theme.textClass : ""}`} style={isCustom ? { color: p.mutedText || p.text } : undefined}>
                   Liked by {likers.slice(0, 3).map((liker) => liker.name || "User").join(", ")}
                   {likers.length > 3 ? ` and ${likers.length - 3} others` : ""}
                 </p>
@@ -508,21 +516,21 @@ export default function BlogPostPage() {
 
           {/* Themed Content */}
           {user || isAdmin ? (
-            <div className={`mt-10 ${theme.proseClass} max-w-none ${theme.textClass} leading-relaxed`}>
+            <div className={`mt-10 max-w-none leading-relaxed ${!isCustom ? `${theme.proseClass} ${theme.textClass}` : ""}`} style={isCustom ? { color: p.text } : undefined}>
               {renderMarkdownBlocks(post.content, theme)}
             </div>
           ) : (
             <>
-              <div className={`mt-10 ${theme.proseClass} max-w-none ${theme.textClass} leading-relaxed relative`}>
+              <div className={`mt-10 max-w-none leading-relaxed relative ${!isCustom ? `${theme.proseClass} ${theme.textClass}` : ""}`} style={isCustom ? { color: p.text } : undefined}>
                 <div className="line-clamp-[8] overflow-hidden">
                   {renderMarkdownBlocks(post.content, theme)}
                 </div>
-                <div className={`absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t ${theme.bgClass ? `from-background` : 'from-background'} to-transparent pointer-events-none`}></div>
+                <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t to-transparent pointer-events-none" style={isCustom ? { backgroundImage: `linear-gradient(to top, ${p.background}, transparent)` } : undefined}></div>
               </div>
               <div className="mt-8 glass-panel rounded-2xl p-8 text-center">
                 <span className="material-symbols-outlined text-5xl text-primary mb-4 block">lock</span>
-                <h3 className={`text-2xl font-bold font-headline ${theme.headingClass} mb-2`}>Sign in to read the full article</h3>
-                <p className={`text-sm ${theme.textClass} mb-6`}>
+                <h3 className={`text-2xl font-bold font-headline mb-2 ${!isCustom ? theme.headingClass : ""}`} style={isCustom ? { color: p.heading || p.text } : undefined}>Sign in to read the full article</h3>
+                <p className={`text-sm mb-6 ${!isCustom ? theme.textClass : ""}`} style={isCustom ? { color: p.mutedText || p.text } : undefined}>
                   Create a free account or sign in to access the complete post, leave comments, and engage with the community.
                 </p>
                 <div className="flex items-center justify-center gap-3">

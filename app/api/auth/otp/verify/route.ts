@@ -243,9 +243,9 @@ export async function POST(request: NextRequest) {
       path: '/',
     });
 
-    // Also set the old otp_session cookie for backward compatibility
+    // Non-httpOnly companion flag so client JS can detect OTP session
     response.cookies.set('otp_session', 'true', {
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60,

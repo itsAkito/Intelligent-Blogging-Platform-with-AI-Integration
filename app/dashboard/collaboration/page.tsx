@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Navbar from "@/components/NavBar";
-import SideNavBar from "@/components/SideNavBar";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -131,12 +129,8 @@ export default function CollaborationPage() {
   };
 
   return (
-    <ProtectedRoute>
-      <Navbar />
-      <div className="flex min-h-screen bg-background">
-        <SideNavBar activePage="collaboration" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-4 sm:px-8">
-          <div className="max-w-6xl mx-auto">
+    <div className="px-4 sm:px-8">
+      <div className="max-w-6xl mx-auto">
             <header className="mb-8">
               <h1 className="font-headline text-4xl font-extrabold tracking-tight text-on-surface">Collaborative Drafts</h1>
               <p className="text-sm text-on-surface-variant mt-2">Invite co-authors, assign permissions, and build drafts together.</p>
@@ -263,9 +257,7 @@ export default function CollaborationPage() {
                 </div>
               </div>
             )}
-          </div>
-        </main>
       </div>
-    </ProtectedRoute>
+    </div>
   );
 }

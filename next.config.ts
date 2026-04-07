@@ -92,6 +92,11 @@ export default withSentryConfig(withNextIntl(nextConfig), {
     treeshake: {
       removeDebugLogging: true,
     },
+    // Disable automatic server-component wrapping in dev to prevent
+    // webpack chunk evaluation interference (the "Cannot read 'call'" errors)
+    autoInstrumentServerFunctions: process.env.NODE_ENV === 'production',
+    autoInstrumentMiddleware: process.env.NODE_ENV === 'production',
+    autoInstrumentAppDirectory: process.env.NODE_ENV === 'production',
   },
   // Tunnel Sentry events through your own domain to avoid ad-blockers
   tunnelRoute: '/monitoring',

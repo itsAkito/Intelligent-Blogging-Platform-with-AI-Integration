@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Navbar from "@/components/NavBar";
-import SideNavBar from "@/components/SideNavBar";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+
 import { useAuth } from "@/context/AuthContext";
 
 export default function InsightsPage() {
@@ -46,7 +44,7 @@ export default function InsightsPage() {
       const summary = analyticsData?.summary;
       const trendList = (analyticsData?.dailyData || [])
         .slice(-10)
-        .map((d: any) => `Views:${d.daily_views || 0}, Likes:${d.daily_likes || 0}, Comments:${d.daily_comments || 0}`)
+        .map((d: any) => `Views:${d.views ?? d.daily_views ?? 0}, Likes:${d.likes ?? d.daily_likes ?? 0}, Comments:${d.comments ?? d.daily_comments ?? 0}`)
         .join(" | ");
 
       const response = await fetch("/api/ai/generate", {
@@ -92,12 +90,8 @@ export default function InsightsPage() {
   ];
 
   return (
-    <ProtectedRoute>
-      <Navbar />
-      <div className="flex min-h-screen bg-background">
-        <SideNavBar activePage="insights" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-4 sm:px-8">
-          <div className="max-w-7xl mx-auto">
+    <div className="px-4 sm:px-8">
+      <div className="max-w-7xl mx-auto">
             {/* Gradient Hero Header */}
             <div className="relative mb-10 overflow-hidden rounded-3xl border border-white/10">
               <div className="absolute inset-0 bg-linear-to-br from-violet-950 via-[#0f0a1e] to-blue-950" />
@@ -264,9 +258,7 @@ export default function InsightsPage() {
                 </div>
               </div>
             )}
-          </div>
-        </main>
       </div>
-    </ProtectedRoute>
+    </div>
   );
 }

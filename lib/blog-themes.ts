@@ -290,6 +290,18 @@ function mergePalette(base: BlogThemePalette, incoming?: Partial<BlogThemePalett
 export function hydrateCustomTheme(record: BlogThemeRecord): BlogTheme {
   const fallback = BLOG_THEMES[0];
   const config = record.theme_config || {};
+  const palette = mergePalette(fallback.palette, config.palette);
+
+  // Generate Tailwind arbitrary-value classes from the custom palette
+  // so they override the default theme's CSS-variable-based classes
+  const bg = palette.background;
+  const txt = palette.text;
+  const heading = palette.heading;
+  const accent = palette.accent;
+  const border = palette.border;
+  const surface = palette.surface;
+  const codeBg = palette.codeBackground;
+  const bqBg = palette.blockquoteBackground;
 
   return {
     ...fallback,
@@ -300,7 +312,17 @@ export function hydrateCustomTheme(record: BlogThemeRecord): BlogTheme {
     source: "custom",
     fontClass: config.fontClass || fallback.fontClass,
     blockVariant: config.blockVariant || fallback.blockVariant,
-    palette: mergePalette(fallback.palette, config.palette),
+    palette,
+    bgClass: `bg-[${bg}]`,
+    textClass: `text-[${txt}]`,
+    headingClass: `text-[${heading}]`,
+    linkClass: `text-[${accent}] hover:opacity-80`,
+    codeBlockClass: `bg-[${codeBg}] border border-[${border}]/30`,
+    blockquoteClass: `border-l-4 border-[${accent}]/50 bg-[${bqBg}] pl-4 py-2 italic`,
+    cardClass: `bg-[${surface}] border-[${border}]/20`,
+    coverOverlayClass: `from-transparent via-transparent to-[${bg}]`,
+    accentClass: `text-[${accent}]`,
+    proseClass: "prose prose-invert prose-lg",
     isPublic: Boolean(record.is_public),
     isFeatured: Boolean(record.is_featured),
     creatorId: record.created_by || null,

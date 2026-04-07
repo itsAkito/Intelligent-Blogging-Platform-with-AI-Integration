@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
     });
 
     response.cookies.set('otp_session', 'true', {
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60,

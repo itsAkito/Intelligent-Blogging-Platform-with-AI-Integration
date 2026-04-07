@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import Navbar from "@/components/NavBar";
-import SideNavBar from "@/components/SideNavBar";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+
 import { useAuth } from "@/context/AuthContext";
 import { subscribeLikeUpdates } from "@/lib/like-sync";
 
@@ -80,12 +78,8 @@ export default function MyPostsPage() {
   });
 
   return (
-    <ProtectedRoute>
-      <Navbar />
-      <div className="flex min-h-screen bg-background">
-        <SideNavBar activePage="posts" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-8">
-          <div className="max-w-6xl mx-auto">
+    <div className="px-4 sm:px-8">
+      <div className="max-w-6xl mx-auto">
             {/* Header */}
             <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
               <div>
@@ -186,9 +180,7 @@ export default function MyPostsPage() {
                 ))}
               </div>
             )}
-          </div>
-        </main>
       </div>
-    </ProtectedRoute>
+    </div>
   );
 }

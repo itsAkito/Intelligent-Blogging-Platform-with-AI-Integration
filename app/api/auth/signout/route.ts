@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
 
   // 4. Clear custom auth cookies
   response.cookies.set("otp_session_token", "", cookieOpts);
-  response.cookies.set("otp_session", "", cookieOpts);
+  response.cookies.set("otp_session", "", cookieOptsPublic);
   response.cookies.set("admin_session_token", "", cookieOpts);
   response.cookies.set("admin_session_active", "", cookieOptsPublic);
 

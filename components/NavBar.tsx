@@ -16,9 +16,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const NotificationsDropdown = dynamic(() => import("@/components/NotificationsDropdown"), { ssr: false });
-const LanguageSwitcher = dynamic(() => import("@/components/LanguageSwitcher"), { ssr: false });
-const ThemeToggle = dynamic(() => import("@/components/ThemeToggle"), { ssr: false });
+const NotificationsDropdown = dynamic(
+  () => import("@/components/NotificationsDropdown").catch(() => ({ default: () => null })),
+  { ssr: false, loading: () => null }
+);
+const LanguageSwitcher = dynamic(
+  () => import("@/components/LanguageSwitcher").catch(() => ({ default: () => null })),
+  { ssr: false, loading: () => null }
+);
+const ThemeToggle = dynamic(
+  () => import("@/components/ThemeToggle").catch(() => ({ default: () => null })),
+  { ssr: false, loading: () => null }
+);
 
 const PRIMARY_LINKS = [
   { href: "/", label: "About", icon: "info" },

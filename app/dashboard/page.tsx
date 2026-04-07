@@ -2,9 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
-import Navbar from "@/components/NavBar";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { useAuth } from "@/context/AuthContext";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,8 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-
-const SideNavBar = dynamic(() => import("@/components/SideNavBar"), { ssr: false });
 
 interface Post {
   id: string;
@@ -99,11 +94,7 @@ export default function DashboardPage() {
   }, [fetchUserData]);
 
   return (
-    <ProtectedRoute>
-      <Navbar />
-      <div className="flex min-h-screen" style={{background: "radial-gradient(ellipse 70% 45% at 15% 5%, rgba(99,102,241,0.1) 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 85% 90%, rgba(16,185,129,0.08) 0%, transparent 55%), hsl(var(--background))"}}>
-        <SideNavBar activePage="home" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-4 sm:px-8">
+    <div className="px-4 sm:px-8" style={{background: "radial-gradient(ellipse 70% 45% at 15% 5%, rgba(99,102,241,0.1) 0%, transparent 55%), radial-gradient(ellipse 60% 40% at 85% 90%, rgba(16,185,129,0.08) 0%, transparent 55%)"}}>
           <div className="max-w-6xl mx-auto">
             {/* Header */}
             <header className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -344,8 +335,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </main>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }

@@ -17,9 +17,9 @@ export async function GET(request: NextRequest) {
       .select('id, views, likes_count, created_at')
       .eq('author_id', userId);
 
-    const totalPosts = posts?.length || 0;
-    const totalViews = posts?.reduce((sum: number, p: any) => sum + (p.views || 0), 0) || 0;
-    const totalLikes = posts?.reduce((sum: number, p: any) => sum + (p.likes_count || 0), 0) || 0;
+    const totalPosts = posts?.length ?? 0;
+    const totalViews = (posts ?? []).reduce((sum: number, p: any) => sum + (p.views || 0), 0);
+    const totalLikes = (posts ?? []).reduce((sum: number, p: any) => sum + (p.likes_count || 0), 0);
 
     // Get follower count
     const { count: followersCount } = await supabase

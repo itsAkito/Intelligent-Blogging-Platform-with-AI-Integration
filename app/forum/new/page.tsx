@@ -39,8 +39,9 @@ function NewTopicContent() {
 
   useEffect(() => {
     fetch("/api/forum/categories")
-      .then((r) => r.json())
-      .then((d) => setCategories(d.categories || []));
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error("Failed to load categories")))
+      .then((d) => setCategories(d?.categories || []))
+      .catch(() => setCategories([]));
   }, []);
 
   useEffect(() => {

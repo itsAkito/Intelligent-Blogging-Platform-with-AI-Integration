@@ -147,7 +147,7 @@ export async function DELETE(request: NextRequest) {
       path: '/',
     });
     response.cookies.set('otp_session', '', {
-      httpOnly: true,
+      httpOnly: false,
       maxAge: 0,
       path: '/',
     });

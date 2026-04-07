@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import Navbar from "@/components/NavBar";
-import SideNavBar from "@/components/SideNavBar";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+
 import { useAuth } from "@/context/AuthContext";
 
 export default function SettingsPage() {
@@ -92,12 +90,8 @@ export default function SettingsPage() {
   ];
 
   return (
-    <ProtectedRoute>
-      <Navbar />
-      <div className="flex min-h-screen bg-background">
-        <SideNavBar activePage="settings" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-8">
-          <div className="max-w-5xl mx-auto">
+    <div className="px-4 sm:px-8">
+      <div className="max-w-5xl mx-auto">
             <header className="mb-10">
               <h1 className="font-headline text-5xl font-extrabold tracking-tighter text-on-surface">
                 <span className="text-gradient italic">Settings</span>
@@ -349,9 +343,7 @@ export default function SettingsPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </main>
       </div>
-    </ProtectedRoute>
+    </div>
   );
 }

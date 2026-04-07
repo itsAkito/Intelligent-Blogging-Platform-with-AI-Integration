@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Navbar from "@/components/NavBar";
-import SideNavBar from "@/components/SideNavBar";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
+
 import { useAuth } from "@/context/AuthContext";
 import SkillBadges from "@/components/SkillBadges";
 import { Button } from "@/components/ui/button";
@@ -53,7 +51,10 @@ export default function CareerTrackPage() {
 
   const fetchCareerData = useCallback(async () => {
     try {
-      const statsRes = await fetch("/api/user/stats");
+      const [statsRes, postsRes] = await Promise.all([
+        fetch("/api/user/stats"),
+        fetch(`/api/posts?userId=${user?.id}`),
+      ]);
 
       if (statsRes.ok) {
         const { stats } = await statsRes.json();
@@ -79,8 +80,6 @@ export default function CareerTrackPage() {
         setMilestones(updated);
       }
 
-      // Fetch posts with topics for domain mastery
-      const postsRes = await fetch(`/api/posts?userId=${user?.id}`);
       if (postsRes.ok) {
         const data = await postsRes.json();
         const postData = data.posts || data || [];
@@ -150,12 +149,8 @@ export default function CareerTrackPage() {
   const completedCount = milestones.filter((m) => m.status === "completed").length;
 
   return (
-    <ProtectedRoute>
-      <Navbar />
-      <div className="flex min-h-screen bg-background">
-        <SideNavBar activePage="career" />
-        <main className="flex-1 lg:ml-64 pt-24 pb-24 lg:pb-12 px-8">
-          <div className="max-w-6xl mx-auto">
+    <div className="px-4 sm:px-8">
+      <div className="max-w-6xl mx-auto">
             {/* Header */}
             <header className="mb-10">
               <h1 className="font-headline text-5xl font-extrabold tracking-tighter text-on-surface">
@@ -435,9 +430,7 @@ export default function CareerTrackPage() {
                 <SkillBadges userId={user.id} />
               </div>
             )}
-          </div>
-        </main>
       </div>
-    </ProtectedRoute>
+    </div>
   );
 }

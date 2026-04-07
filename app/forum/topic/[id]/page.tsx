@@ -107,8 +107,8 @@ export default function TopicPage() {
   useEffect(() => {
     if (!id || !isAuthenticated) return;
     fetch(`/api/forum/topics/${id}/like`)
-      .then((r) => r.json())
-      .then((d) => setLiked(d.liked || false))
+      .then((r) => r.ok ? r.json() : Promise.reject())
+      .then((d) => setLiked(d?.liked || false))
       .catch(() => {});
   }, [id, isAuthenticated]);
 

@@ -66,6 +66,8 @@ const config: Config = {
         headline: ["var(--font-manrope)", "sans-serif"],
         body: ["var(--font-inter)", "sans-serif"],
         label: ["var(--font-inter)", "sans-serif"],
+        serif: ["'Playfair Display'", "'Lora'", "'Merriweather'", "'Crimson Pro'", "'Source Serif 4'", "serif"],
+        mono: ["'JetBrains Mono'", "'Fira Code'", "ui-monospace", "monospace"],
       },
       borderRadius: {
         none: "0",

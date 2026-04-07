@@ -126,7 +126,10 @@ function EditorContent() {
           formData.append("file", file);
           formData.append("folder", "blog-inline");
           const response = await fetch("/api/upload", { method: "POST", body: formData });
-          if (!response.ok) throw new Error("Upload failed");
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || `Upload failed (${response.status})`);
+          }
           const data = await response.json();
           const imageUrl = data.url;
 
@@ -498,7 +501,10 @@ function EditorContent() {
       formData.append("file", file);
       formData.append("folder", "blog-covers");
       const response = await fetch("/api/upload", { method: "POST", body: formData });
-      if (!response.ok) throw new Error("Upload failed");
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `Upload failed (${response.status})`);
+      }
       const data = await response.json();
       setCoverImageUrl(data.url);
       setSuccess("Image uploaded!");
@@ -1260,7 +1266,10 @@ function EditorContent() {
                       formData.append("file", file);
                       formData.append("folder", "blog-inline");
                       const response = await fetch("/api/upload", { method: "POST", body: formData });
-                      if (!response.ok) throw new Error("Upload failed");
+                      if (!response.ok) {
+                        const errData = await response.json().catch(() => ({}));
+                        throw new Error(errData.error || `Upload failed (${response.status})`);
+                      }
                       const data = await response.json();
                       const textarea = contentRef.current;
                       if (textarea) {

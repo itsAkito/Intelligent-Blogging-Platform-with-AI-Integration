@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { toJpeg } from "html-to-image";
 import {
   AlertCircle,
   ArrowLeft,
@@ -32,9 +31,6 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import Navbar from "@/components/NavBar";
-import SideNavBar from "@/components/SideNavBar";
-import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 /* ───────────── Types ───────────── */
 
@@ -144,6 +140,30 @@ const emptyProject = (): ProjectItem => ({
   name: "", description: "", url: "", technologies: "", startDate: "", endDate: "",
 });
 
+/** Merge a partial item with its empty template so every field is defined (prevents uncontrolled→controlled warnings). */
+function sanitizeExperience(item: Partial<ExperienceItem>): ExperienceItem {
+  return { ...emptyExperience(), ...Object.fromEntries(Object.entries(item).filter(([, v]) => v !== undefined && v !== null)) } as ExperienceItem;
+}
+function sanitizeEducation(item: Partial<EducationItem>): EducationItem {
+  return { ...emptyEducation(), ...Object.fromEntries(Object.entries(item).filter(([, v]) => v !== undefined && v !== null)) } as EducationItem;
+}
+function sanitizeProject(item: Partial<ProjectItem>): ProjectItem {
+  return { ...emptyProject(), ...Object.fromEntries(Object.entries(item).filter(([, v]) => v !== undefined && v !== null)) } as ProjectItem;
+}
+function sanitizeResumeData(raw: Partial<ResumeData>): ResumeData {
+  return {
+    ...defaultResumeData,
+    ...Object.fromEntries(Object.entries(raw).filter(([, v]) => v !== undefined && v !== null)),
+    experience: (raw.experience?.length ? raw.experience.map(sanitizeExperience) : [emptyExperience()]),
+    education: (raw.education?.length ? raw.education.map(sanitizeEducation) : [emptyEducation()]),
+    projects: (raw.projects || []).map(sanitizeProject),
+    skills: raw.skills || [],
+    certifications: raw.certifications || [],
+    languages: raw.languages || [],
+    awards: raw.awards || [],
+  };
+}
+
 const defaultResumeData: ResumeData = {
   fullName: "", email: "", phone: "", address: "", location: "", linkedin: "", website: "",
   photoUrl: "", summary: "", skills: [],
@@ -203,7 +223,7 @@ export default function ResumePage() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setResumeData(prev => ({ ...prev, ...parsed }));
+        setResumeData(sanitizeResumeData(parsed));
         if (parsed.template) setActiveTemplate(TEMPLATES.findIndex(t => t.toLowerCase() === parsed.template) || 0);
         if (parsed.colorTheme) setActiveColorTheme(COLOR_THEMES.findIndex(c => c.name.toLowerCase() === parsed.colorTheme) || 0);
       } catch {}
@@ -214,18 +234,7 @@ export default function ResumePage() {
       .then(d => {
         if (d.resume) {
           const r = d.resume.resume_data || d.resume;
-          setResumeData(prev => ({
-            ...defaultResumeData,
-            ...prev,
-            ...r,
-            experience: r.experience?.length ? r.experience : [emptyExperience()],
-            education: r.education?.length ? r.education : [emptyEducation()],
-            projects: r.projects || [],
-            languages: r.languages || [],
-            awards: r.awards || [],
-            volunteerWork: r.volunteerWork || "",
-            targetRole: r.targetRole || "",
-          }));
+          setResumeData(sanitizeResumeData(r));
         }
       })
       .catch(() => {});
@@ -380,6 +389,7 @@ export default function ResumePage() {
 
     if (format === "jpg" && previewRef.current) {
       try {
+        const { toJpeg } = await import("html-to-image");
         const dataUrl = await toJpeg(previewRef.current, { quality: 0.95, backgroundColor: "#ffffff" });
         downloadFile(dataUrl, `${resumeData.fullName || "resume"}.jpg`);
         await saveExportedFile("jpg");
@@ -491,13 +501,8 @@ export default function ResumePage() {
   /* ───────────── Render ───────────── */
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen" style={{ background: P.surface, color: P.onSurface }}>
-        <Navbar />
-        <div className="flex">
-          <SideNavBar />
-          <main className="flex-1 pb-32 lg:pb-24">
-            <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <div className="px-4 py-8 sm:px-6" style={{ background: P.surface, color: P.onSurface }}>
+      <div className="mx-auto max-w-7xl">
 
               {/* Header */}
               <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -1302,10 +1307,9 @@ export default function ResumePage() {
                   </div>
                 </aside>
               </div>
-            </div>
-          </main>
+      </div>
 
-          {/* Bottom bar */}
+      {/* Bottom bar */}
           <div className="fixed bottom-0 left-0 right-0 z-40 border-t bg-[#0f0a1e]/95 backdrop-blur print:hidden" style={{ borderColor: `${P.outlineVariant}66` }}>
             <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-6 py-3">
               <div className="flex items-center gap-2">
@@ -1329,8 +1333,6 @@ export default function ResumePage() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </ProtectedRoute>
+    </div>
   );
 }
