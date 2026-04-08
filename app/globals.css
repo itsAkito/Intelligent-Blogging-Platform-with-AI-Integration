@@ -1,7 +1,22 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 
+@property --border-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes border-spin {
+  to { --border-angle: 360deg; }
+}
+
 @layer components {
+  .animate-border-spin {
+    animation: border-spin 1.8s linear infinite;
+    background: conic-gradient(from var(--border-angle), transparent 40%, #a855f7, #6366f1, #ec4899, #f59e0b, #10b981, transparent 60%) border-box;
+  }
+
   .glass-panel {
     background: rgba(38, 38, 38, 0.4);
     backdrop-filter: blur(24px);

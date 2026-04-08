@@ -199,6 +199,18 @@ export default function Navbar() {
                               <Link href="/dashboard" className="cursor-pointer">Dashboard</Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
+                              <Link href="/dashboard/dna" className="cursor-pointer flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[16px]">fingerprint</span>
+                                Writer DNA
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link href="/dashboard/achievements" className="cursor-pointer flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[16px]">emoji_events</span>
+                                XP &amp; Badges
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
                               <Link href="/dashboard/settings" className="cursor-pointer">Settings</Link>
                             </DropdownMenuItem>
                           </>

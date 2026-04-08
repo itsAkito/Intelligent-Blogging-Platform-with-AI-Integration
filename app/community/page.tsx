@@ -243,13 +243,12 @@ function CommunityContent() {
   };
 
   const sortedPosts = [...apiPosts].sort((a, b) => {
-    const hasSearchQuery = Boolean(searchQuery.trim());
-    if (hasSearchQuery && sortBy === "latest") {
-      return 0;
+    if (sortBy === "liked") {
+      return (b.likes_count || 0) - (a.likes_count || 0);
     }
-
-    if (sortBy === "liked") return b.likes_count - a.likes_count;
-    if (sortBy === "viewed") return b.views - a.views;
+    if (sortBy === "viewed") {
+      return (b.views || 0) - (a.views || 0);
+    }
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
@@ -604,15 +603,15 @@ function CommunityContent() {
               {/* Sort Tabs */}
               <Tabs value={sortBy} onValueChange={setSortBy}>
                 <TabsList className="bg-surface-container border border-outline-variant/10 rounded-full p-1 h-auto">
-                  <TabsTrigger value="latest" className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-on-surface-variant hover:text-on-surface">
+                  <TabsTrigger value="latest" className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md text-on-surface-variant hover:text-on-surface transition-all">
                     <span className="material-symbols-outlined text-sm mr-1.5">schedule</span>
                     Latest
                   </TabsTrigger>
-                  <TabsTrigger value="liked" className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-on-surface-variant hover:text-on-surface">
+                  <TabsTrigger value="liked" className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md text-on-surface-variant hover:text-on-surface transition-all">
                     <span className="material-symbols-outlined text-sm mr-1.5">favorite</span>
                     Most Liked
                   </TabsTrigger>
-                  <TabsTrigger value="viewed" className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-primary/15 data-[state=active]:text-primary data-[state=active]:shadow-none text-on-surface-variant hover:text-on-surface">
+                  <TabsTrigger value="viewed" className="rounded-full text-xs px-4 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-md text-on-surface-variant hover:text-on-surface transition-all">
                     <span className="material-symbols-outlined text-sm mr-1.5">visibility</span>
                     Most Viewed
                   </TabsTrigger>
