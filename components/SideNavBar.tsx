@@ -31,6 +31,8 @@ const NAV_SECTIONS = [
     label: "You",
     items: [
       { id: "portfolio", label: "Portfolio", icon: "deployed_code", href: "/dashboard/portfolio" },
+      { id: "dna", label: "Writer DNA", icon: "fingerprint", href: "/dashboard/dna" },
+      { id: "achievements", label: "XP & Badges", icon: "emoji_events", href: "/dashboard/achievements" },
       { id: "collaboration", label: "Collaboration", icon: "group", href: "/dashboard/collaboration" },
       { id: "settings", label: "Settings", icon: "settings", href: "/dashboard/settings" },
     ],

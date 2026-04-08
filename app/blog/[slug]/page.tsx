@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import Navbar from "@/components/NavBar";
+import GhostReaderPanel from "@/components/GhostReaderPanel";
 
 import { useAuth } from "@/context/AuthContext";
 import { renderMarkdownBlocks } from "@/lib/markdown";
@@ -768,6 +769,11 @@ export default function BlogPostPage() {
               )}
             </div>
           </section>
+
+          {/* Ghost Reader AI - only for post author */}
+          {user && post.profiles?.id === user.id && (
+            <GhostReaderPanel postId={post.id} />
+          )}
           </>
           )}
         </article>
