@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateBlogContentStream, generateSyntheticInsight, getAIProviderStatus } from '@/lib/gemini';
 import { isRateLimitError, isConfigError } from '@/lib/retry';
 
+export const maxDuration = 30;
+
 /**
  * Streaming endpoint for real-time blog content generation
  * Sends content chunks as they are generated for better UX

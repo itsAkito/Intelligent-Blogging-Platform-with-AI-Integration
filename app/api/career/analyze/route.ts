@@ -3,10 +3,12 @@ import { createClient } from '@supabase/supabase-js';
 import { analyzeWriterSkills, getAIProviderStatus } from '@/lib/gemini';
 import { checkRateLimit, getRequestIdentifier, RATE_LIMITS } from '@/lib/rate-limit';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 /**
  * POST /api/career/analyze — AI-powered skill assessment from published posts
@@ -29,6 +31,8 @@ export async function POST(request: NextRequest) {
     if (!aiStatus.configured) {
       return NextResponse.json({ error: 'AI not configured', code: 'MISSING_API_KEY' }, { status: 503 });
     }
+
+    const supabase = getSupabase();
 
     // Fetch user's published posts
     const { data: posts, error: postsError } = await supabase
@@ -96,6 +100,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'userId is required' }, { status: 400 });
   }
 
+  const supabase = getSupabase();
   const { data: assessment } = await supabase
     .from('user_skill_assessments')
     .select('*')
@@ -111,6 +116,7 @@ async function checkAndAwardBadges(
   userId: string,
   posts: { title: string; topic: string; content: string; views: number }[]
 ) {
+  const supabase = getSupabase();
   // Fetch badge definitions
   const { data: definitions } = await supabase
     .from('badge_definitions')
