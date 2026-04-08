@@ -6,9 +6,9 @@ import NewsletterForm from '@/components/NewsletterForm';
 
 export default function Footer() {
   return (
-    <footer className="w-full border-t border-white/5 bg-[#0e0e0e]">
+    <footer className="w-full border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#0e0e0e] transition-colors">
       {/* ─── Newsletter Section ─── */}
-      <div className="relative overflow-hidden border-b border-white/5">
+      <div className="relative overflow-hidden border-b border-black/5 dark:border-white/5">
         <div className="absolute inset-0" style={{background: 'linear-gradient(135deg, rgba(59,130,246,0.08) 0%, rgba(139,92,246,0.06) 25%, transparent 50%, rgba(16,185,129,0.06) 75%, rgba(236,72,153,0.04) 100%)'}} />
         <div className="absolute inset-0" style={{background: 'radial-gradient(ellipse at 20% 50%, rgba(59,130,246,0.12), transparent 60%), radial-gradient(ellipse at 80% 30%, rgba(139,92,246,0.08), transparent 50%)'}} />
 
@@ -22,7 +22,7 @@ export default function Footer() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-10 mb-16">
           {/* Brand */}
           <div className="col-span-2 sm:col-span-3 lg:col-span-2">
-            <Link href="/" className="text-2xl font-bold tracking-tighter text-white mb-4 block font-headline">
+            <Link href="/" className="text-2xl font-bold tracking-tighter text-on-surface mb-4 block font-headline">
               AiBlog
             </Link>
             <p className="text-on-surface-variant max-w-xs mb-6 leading-relaxed text-sm">
@@ -46,7 +46,7 @@ export default function Footer() {
 
           {/* Platform */}
           <div>
-            <h6 className="text-white font-bold text-xs mb-5 uppercase tracking-[0.2em] font-headline">Platform</h6>
+            <h6 className="text-on-surface font-bold text-xs mb-5 uppercase tracking-[0.2em] font-headline">Platform</h6>
             <ul className="space-y-3 text-sm text-on-surface-variant">
               <li><Link href="/editor" className="hover:text-primary transition-colors">Blog Editor</Link></li>
               <li><Link href="/blog-themes" className="hover:text-primary transition-colors">Theme Gallery</Link></li>
@@ -59,7 +59,7 @@ export default function Footer() {
 
           {/* Community */}
           <div>
-            <h6 className="text-white font-bold text-xs mb-5 uppercase tracking-[0.2em] font-headline">Community</h6>
+            <h6 className="text-on-surface font-bold text-xs mb-5 uppercase tracking-[0.2em] font-headline">Community</h6>
             <ul className="space-y-3 text-sm text-on-surface-variant">
               <li><Link href="/community" className="hover:text-primary transition-colors">Feed</Link></li>
               <li><Link href="/forum" className="hover:text-primary transition-colors">Forum Discussions</Link></li>
@@ -71,7 +71,7 @@ export default function Footer() {
 
           {/* Careers & Jobs */}
           <div>
-            <h6 className="text-white font-bold text-xs mb-5 uppercase tracking-[0.2em] font-headline">Careers</h6>
+            <h6 className="text-on-surface font-bold text-xs mb-5 uppercase tracking-[0.2em] font-headline">Careers</h6>
             <ul className="space-y-3 text-sm text-on-surface-variant">
               <li><Link href="/jobs" className="hover:text-primary transition-colors">Job Board</Link></li>
               <li><Link href="/careers" className="hover:text-primary transition-colors flex items-center gap-1.5">We&apos;re Hiring <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 text-[8px] border-transparent py-0 px-1">Open</Badge></Link></li>
@@ -83,7 +83,7 @@ export default function Footer() {
 
           {/* Company & Legal */}
           <div>
-            <h6 className="text-white font-bold text-xs mb-5 uppercase tracking-[0.2em] font-headline">Company</h6>
+            <h6 className="text-on-surface font-bold text-xs mb-5 uppercase tracking-[0.2em] font-headline">Company</h6>
             <ul className="space-y-3 text-sm text-on-surface-variant">
               <li><Link href="/" className="hover:text-primary transition-colors">About AiBlog</Link></li>
               <li><Link href="/contact" className="hover:text-primary transition-colors">Contact Us</Link></li>
@@ -98,7 +98,7 @@ export default function Footer() {
         <div className="flex flex-wrap items-center gap-2 mb-8">
           <span className="text-[10px] text-on-surface-variant/50 uppercase tracking-wider mr-2">Built with</span>
           {["Next.js", "Supabase", "Tailwind CSS", "Gemini AI", "Clerk Auth"].map((tech) => (
-            <span key={tech} className="text-[10px] px-2 py-0.5 border border-white/5 text-on-surface-variant/60">{tech}</span>
+            <span key={tech} className="text-[10px] px-2 py-0.5 border border-black/5 dark:border-white/5 text-on-surface-variant/60 rounded">{tech}</span>
           ))}
         </div>
 

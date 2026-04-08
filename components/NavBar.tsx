@@ -89,18 +89,18 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="fixed top-0 w-full z-50 font-headline" style={{background: 'linear-gradient(90deg, rgba(14,14,14,0.75) 0%, rgba(20,18,30,0.78) 50%, rgba(14,14,14,0.75) 100%)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(139,92,246,0.12)', boxShadow: '0 8px 40px -8px rgba(59,130,246,0.18), 0 2px 0 0 rgba(139,92,246,0.08)'}}>
+      <header className="fixed top-0 w-full z-50 font-headline bg-white/80 dark:bg-[#0e0e0e]/80 backdrop-blur-xl border-b border-black/5 dark:border-white/5 transition-colors">
         <nav className="flex justify-between items-center px-6 lg:px-12 h-16 w-full max-w-350 mx-auto">
           <div className="flex items-center gap-8">
-            <Link href="/" className="text-xl font-bold tracking-tighter bg-linear-to-br from-blue-400 via-violet-400 to-emerald-400 bg-clip-text text-transparent hover:opacity-90 transition-opacity">
+            <Link href="/" className="text-xl font-bold tracking-tighter text-on-surface hover:opacity-90 transition-opacity">
               AiBlog
             </Link>
-            <div className="hidden md:flex gap-3 text-sm items-center">
+            <div className="hidden md:flex gap-1 text-sm items-center">
               {PRIMARY_LINKS.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="text-zinc-400 hover:text-primary transition-all font-medium rounded-full px-3 py-1.5 hover:bg-white/5 flex items-center gap-1.5"
+                  className="text-on-surface-variant hover:text-primary transition-all font-medium rounded-lg px-3 py-1.5 hover:bg-primary/5 flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">{item.icon}</span>
                   {item.label}
@@ -112,7 +112,7 @@ export default function Navbar() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
-                      className="text-zinc-400 hover:text-primary transition-all font-medium rounded-full px-3 py-1.5 hover:bg-white/5 flex items-center gap-1.5 h-auto"
+                      className="text-on-surface-variant hover:text-primary transition-all font-medium rounded-lg px-3 py-1.5 hover:bg-primary/5 flex items-center gap-1.5 h-auto"
                     >
                       <span className="material-symbols-outlined text-[16px]">explore</span>
                       Explore
@@ -136,7 +136,7 @@ export default function Navbar() {
               {mounted && isAuthenticated && !isAdminOnly && (
                 <Link
                   href="/dashboard"
-                  className="text-zinc-400 hover:text-primary transition-all font-medium rounded-full px-3 py-1.5 hover:bg-white/5 flex items-center gap-1.5"
+                  className="text-on-surface-variant hover:text-primary transition-all font-medium rounded-lg px-3 py-1.5 hover:bg-primary/5 flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">dashboard</span>
                   Dashboard
@@ -150,7 +150,7 @@ export default function Navbar() {
                 {!isAdminOnly && <NotificationsDropdown />}
                 
                 {isAdmin && (
-                  <Link href="/admin" className="hidden sm:block text-sm font-semibold text-zinc-400 hover:text-white transition-colors">
+                  <Link href="/admin" className="hidden sm:block text-sm font-semibold text-on-surface-variant hover:text-on-surface transition-colors">
                     Admin
                   </Link>
                 )}
@@ -162,7 +162,7 @@ export default function Navbar() {
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant="ghost"
-                          className="h-9 px-1.5 rounded-full border border-white/10 hover:bg-white/5 flex items-center gap-2"
+                          className="h-9 px-1.5 rounded-full border border-black/10 dark:border-white/10 hover:bg-primary/5 flex items-center gap-2"
                         >
                           <div className="w-7 h-7 rounded-full overflow-hidden">
                             {avatarUrl ? (
@@ -179,15 +179,15 @@ export default function Navbar() {
                               </div>
                             )}
                           </div>
-                          <span className="hidden lg:block text-sm max-w-35 truncate text-zinc-200">{displayName}</span>
-                          <span className="material-symbols-outlined text-[16px] text-zinc-400">expand_more</span>
+                          <span className="hidden lg:block text-sm max-w-35 truncate text-on-surface">{displayName}</span>
+                          <span className="material-symbols-outlined text-[16px] text-on-surface-variant">expand_more</span>
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" sideOffset={4} className="w-56" onMouseEnter={openProfile} onMouseLeave={closeProfile}>
                         <div className="absolute -top-4 left-0 right-0 h-4" />
                         <div className="px-2 py-1.5">
-                          <p className="text-sm font-semibold text-white">{displayName}</p>
-                          <p className="text-xs text-zinc-400 truncate">{displayEmail}</p>
+                          <p className="text-sm font-semibold text-on-surface">{displayName}</p>
+                          <p className="text-xs text-on-surface-variant truncate">{displayEmail}</p>
                           {isAdmin && (
                             <p className="text-xs text-blue-400 font-semibold mt-1">Admin</p>
                           )}
@@ -224,23 +224,23 @@ export default function Navbar() {
                 )}
                 
                 {!isAdminOnly && (
-                  <Button asChild className="px-5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
+                  <Button asChild className="px-5 bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-md hover:shadow-lg transition-all">
                     <Link href="/editor">Create Post</Link>
                   </Button>
                 )}
               </>
             ) : mounted ? (
               <>
-                <Button asChild variant="ghost" className="hidden sm:block text-sm font-semibold text-zinc-400 hover:text-white">
+                <Button asChild variant="ghost" className="hidden sm:block text-sm font-semibold text-on-surface-variant hover:text-on-surface">
                   <Link href="/auth">Login</Link>
                 </Button>
-                <Button asChild className="px-5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
+                <Button asChild className="px-5 bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-md hover:shadow-lg transition-all">
                   <Link href="/auth?next=%2Fpricing">Get Started</Link>
                 </Button>
               </>
             ) : (
               // Pre-hydration placeholder — matches server HTML exactly
-              <Button asChild className="px-5 bg-linear-to-r from-primary to-primary-container text-on-primary-fixed rounded-full font-bold text-sm hover:scale-[1.02] shadow-lg shadow-primary/20">
+              <Button asChild className="px-5 bg-primary text-white font-bold text-sm hover:bg-primary/90 shadow-md hover:shadow-lg transition-all">
                 <Link href="/auth?next=%2Fpricing">Get Started</Link>
               </Button>
             )}
@@ -248,18 +248,18 @@ export default function Navbar() {
               <ThemeToggle />
               <LanguageSwitcher />
             </div>
-            <Button variant="ghost" size="icon" className="md:hidden text-zinc-400" onClick={() => setMenuOpen(!menuOpen)}>
+            <Button variant="ghost" size="icon" className="md:hidden text-on-surface-variant" onClick={() => setMenuOpen(!menuOpen)}>
               <span className="material-symbols-outlined">menu</span>
             </Button>
           </div>
         </nav>
         {menuOpen && (
-          <div className="md:hidden bg-surface-container-low border-t border-white/5 px-6 py-4 space-y-2">
+          <div className="md:hidden bg-white dark:bg-surface-container-low border-t border-black/5 dark:border-white/5 px-6 py-4 space-y-2">
             {PRIMARY_LINKS.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="text-sm text-zinc-300 hover:text-white rounded-lg px-2 py-2 hover:bg-white/5 transition-colors flex items-center gap-2"
+                className="text-sm text-on-surface-variant hover:text-on-surface rounded-lg px-2 py-2 hover:bg-primary/5 transition-colors flex items-center gap-2"
                 onClick={() => setMenuOpen(false)}
               >
                 <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
@@ -268,12 +268,12 @@ export default function Navbar() {
             ))}
 
             <div className="pt-1 pb-1">
-              <p className="px-2 py-1 text-xs uppercase tracking-wide text-zinc-500">Explore</p>
+              <p className="px-2 py-1 text-xs uppercase tracking-wide text-on-surface-variant/60">Explore</p>
               {EXPLORE_LINKS.map((item) => (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="text-sm text-zinc-300 hover:text-white rounded-lg px-2 py-2 hover:bg-white/5 transition-colors flex items-center gap-2"
+                  className="text-sm text-on-surface-variant hover:text-on-surface rounded-lg px-2 py-2 hover:bg-primary/5 transition-colors flex items-center gap-2"
                   onClick={() => setMenuOpen(false)}
                 >
                   <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
@@ -285,7 +285,7 @@ export default function Navbar() {
             {isAuthenticated && mounted && (
               <Link
                 href="/dashboard"
-                className="text-sm text-zinc-300 hover:text-white rounded-lg px-2 py-2 hover:bg-white/5 transition-colors flex items-center gap-2"
+                className="text-sm text-on-surface-variant hover:text-on-surface rounded-lg px-2 py-2 hover:bg-primary/5 transition-colors flex items-center gap-2"
                 onClick={() => setMenuOpen(false)}
               >
                 <span className="material-symbols-outlined text-[18px]">dashboard</span>
@@ -303,7 +303,7 @@ export default function Navbar() {
             </div>
 
             {isAuthenticated && mounted && isAdmin && (
-              <Link href="/admin" className="block text-sm text-zinc-300 hover:text-white rounded-lg px-2 py-2 hover:bg-white/5" onClick={() => setMenuOpen(false)}>Admin</Link>
+              <Link href="/admin" className="block text-sm text-on-surface-variant hover:text-on-surface rounded-lg px-2 py-2 hover:bg-primary/5" onClick={() => setMenuOpen(false)}>Admin</Link>
             )}
 
             {isAuthenticated && (

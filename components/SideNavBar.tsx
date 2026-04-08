@@ -11,6 +11,34 @@ interface SideNavBarProps {
   activePage?: string;
 }
 
+const NAV_SECTIONS = [
+  {
+    label: "Create",
+    items: [
+      { id: "editor", label: "Write Post", icon: "edit_note", href: "/editor" },
+      { id: "resume", label: "Resume Builder", icon: "description", href: "/dashboard/resume" },
+    ],
+  },
+  {
+    label: "Discover",
+    items: [
+      { id: "community", label: "Community", icon: "people", href: "/community" },
+      { id: "jobs", label: "Jobs", icon: "work", href: "/jobs" },
+      { id: "home", label: "Career Hub", icon: "trending_up", href: "/dashboard/career" },
+    ],
+  },
+  {
+    label: "You",
+    items: [
+      { id: "portfolio", label: "Portfolio", icon: "deployed_code", href: "/dashboard/portfolio" },
+      { id: "collaboration", label: "Collaboration", icon: "group", href: "/dashboard/collaboration" },
+      { id: "settings", label: "Settings", icon: "settings", href: "/dashboard/settings" },
+    ],
+  },
+];
+
+const ALL_ITEMS = NAV_SECTIONS.flatMap((s) => s.items);
+
 export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -20,19 +48,9 @@ export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
     router.push("/auth");
   };
 
-  const navItems = [
-    { id: "community", label: "Community", icon: "people", href: "/community" },
-    { id: "jobs", label: "Jobs", icon: "work", href: "/jobs" },
-    { id: "home", label: "Career Hub", icon: "trending_up", href: "/dashboard/career" },
-    { id: "portfolio", label: "Portfolio", icon: "deployed_code", href: "/dashboard/portfolio" },
-    { id: "collaboration", label: "Collaboration", icon: "group", href: "/dashboard/collaboration" },
-    { id: "resume", label: "Resume Builder", icon: "description", href: "/dashboard/resume" },
-    { id: "settings", label: "Settings", icon: "settings", href: "/dashboard/settings" },
-  ];
-
   return (
     <>
-    <aside className="hidden lg:flex h-screen w-64 fixed left-0 top-0 border-r border-white/5 bg-[#0e0e0e] flex-col pt-20 pb-8 z-40">
+    <aside className="hidden lg:flex h-screen w-64 fixed left-0 top-0 border-r border-black/5 dark:border-white/5 bg-white dark:bg-[#0e0e0e] flex-col pt-20 pb-8 z-40 transition-colors">
       {/* User Profile */}
       <div className="px-6 mb-6">
         <div className="flex items-center gap-3">
@@ -54,23 +72,32 @@ export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
         </div>
       </div>
 
-      <Separator className="mb-2 bg-white/5" />
+      <Separator className="mb-4 bg-black/5 dark:bg-white/5" />
 
-      {/* Navigation */}
-      <nav className="flex-1 flex flex-col space-y-0.5 px-3">
-        {navItems.map((item) => (
-          <Link
-            key={item.id}
-            href={item.href}
-            className={`flex items-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 font-headline uppercase tracking-widest text-[10px] ${
-              activePage === item.id
-                ? "bg-primary/10 text-primary font-semibold"
-                : "text-zinc-500 hover:text-zinc-200 hover:bg-white/5"
-            }`}
-          >
-            <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-            {item.label}
-          </Link>
+      {/* Navigation with grouped sections */}
+      <nav className="flex-1 flex flex-col px-3 overflow-y-auto">
+        {NAV_SECTIONS.map((section, idx) => (
+          <div key={section.label} className={idx > 0 ? "mt-5" : ""}>
+            <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.15em] text-on-surface-variant/50">
+              {section.label}
+            </p>
+            <div className="space-y-0.5">
+              {section.items.map((item) => (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm font-medium ${
+                    activePage === item.id
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-primary/5"
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
@@ -88,15 +115,15 @@ export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
     </aside>
 
     {/* Mobile bottom tab bar — visible only below lg */}
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0e0e0e]/95 backdrop-blur-xl border-t border-white/5 flex items-center justify-around px-2 py-1 safe-bottom">
-      {navItems.slice(0, 5).map((item) => (
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#0e0e0e]/95 backdrop-blur-xl border-t border-black/5 dark:border-white/5 flex items-center justify-around px-2 py-1 safe-bottom transition-colors">
+      {ALL_ITEMS.slice(0, 5).map((item) => (
         <Link
           key={item.id}
           href={item.href}
           className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-lg transition-colors min-w-[3rem] ${
             activePage === item.id
               ? "text-primary"
-              : "text-zinc-500 hover:text-zinc-200"
+              : "text-on-surface-variant hover:text-on-surface"
           }`}
         >
           <span className="material-symbols-outlined text-[22px]" style={{ fontVariationSettings: activePage === item.id ? "'FILL' 1" : "'FILL' 0" }}>{item.icon}</span>

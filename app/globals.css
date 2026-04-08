@@ -102,11 +102,20 @@
 }
 
 body {
-  background: #0e0e0e;
-  color: #ffffff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-family: 'Inter', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+html.dark body {
+  background: #0e0e0e;
+  color: #ffffff;
+}
+
+html.light body {
+  background: #ffffff;
+  color: #1a1a1a;
 }
 
 /* Selection */
@@ -129,66 +138,105 @@ body {
   background: rgb(133, 173, 255);
 }
 
-/* ─── Global rectangular corners (no rounding) ─── */
-* {
-  border-radius: 0 !important;
+/* ─── Page entrance animations ─── */
+@keyframes explodeIn {
+  0% { opacity: 0; transform: scale(0.92) translateY(24px); filter: blur(8px); }
+  60% { opacity: 1; transform: scale(1.02) translateY(-4px); filter: blur(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
 }
+@keyframes staggerFadeUp {
+  0% { opacity: 0; transform: translateY(32px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes scaleReveal {
+  0% { opacity: 0; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes slideInLeft {
+  0% { opacity: 0; transform: translateX(-40px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideInRight {
+  0% { opacity: 0; transform: translateX(40px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+
+.animate-explode-in {
+  animation: explodeIn 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-stagger-1 { animation: staggerFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both; }
+.animate-stagger-2 { animation: staggerFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both; }
+.animate-stagger-3 { animation: staggerFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
+.animate-stagger-4 { animation: staggerFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.4s both; }
+.animate-stagger-5 { animation: staggerFadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both; }
+.animate-scale-reveal { animation: scaleReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both; }
+.animate-slide-left { animation: slideInLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both; }
+.animate-slide-right { animation: slideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both; }
 
 /* ─── Light mode overrides ─── */
 html.light body {
-  background: #fafafa;
+  background: #ffffff;
   color: #1a1a1a;
 }
 
 html.light .glass-panel {
-  background: rgba(255, 255, 255, 0.75);
-  border-top-color: rgba(0, 0, 0, 0.08);
-  border-left-color: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.85);
+  border-top-color: rgba(0, 0, 0, 0.06);
+  border-left-color: rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 html.light .text-gradient {
-  background: linear-gradient(to right, #005bc4, #6f00be);
+  background: linear-gradient(to right, #2563eb, #7c3aed);
   -webkit-background-clip: text;
   background-clip: text;
 }
 
 html.light ::selection {
-  background: rgba(0, 91, 196, 0.2);
+  background: rgba(37, 99, 235, 0.2);
 }
 
 html.light ::-webkit-scrollbar-thumb {
   background: rgb(200, 200, 200);
 }
 html.light ::-webkit-scrollbar-thumb:hover {
-  background: rgb(0, 91, 196);
+  background: rgb(37, 99, 235);
 }
 
-/* Light mode Tailwind token overrides via descendant selectors */
-html.light .bg-background { background-color: #fafafa !important; }
-html.light .bg-surface { background-color: #fafafa !important; }
-html.light .bg-surface-container { background-color: #f0f0f0 !important; }
-html.light .bg-surface-container-low { background-color: #f5f5f5 !important; }
-html.light .bg-surface-container-high { background-color: #e8e8e8 !important; }
-html.light .bg-surface-container-highest { background-color: #e0e0e0 !important; }
-html.light .bg-surface-variant { background-color: #e4e4e4 !important; }
+/* Light mode Tailwind token overrides */
+html.light .bg-background { background-color: #ffffff !important; }
+html.light .bg-surface { background-color: #ffffff !important; }
+html.light .bg-surface-container { background-color: #f8f9fa !important; }
+html.light .bg-surface-container-low { background-color: #f1f3f5 !important; }
+html.light .bg-surface-container-high { background-color: #e9ecef !important; }
+html.light .bg-surface-container-highest { background-color: #dee2e6 !important; }
+html.light .bg-surface-variant { background-color: #e9ecef !important; }
 html.light .bg-surface-bright { background-color: #ffffff !important; }
 
 html.light .text-on-background { color: #1a1a1a !important; }
 html.light .text-on-surface { color: #1a1a1a !important; }
-html.light .text-on-surface-variant { color: #5a5a5a !important; }
+html.light .text-on-surface-variant { color: #6c757d !important; }
 html.light .text-white { color: #1a1a1a !important; }
-html.light .text-primary { color: #005bc4 !important; }
+html.light .text-primary { color: #2563eb !important; }
 
-html.light .border-outline-variant { border-color: #d0d0d0 !important; }
-html.light .border-outline { border-color: #b0b0b0 !important; }
-html.light [class*="border-white/"] { border-color: rgba(0, 0, 0, 0.08) !important; }
+html.light .border-outline-variant { border-color: #dee2e6 !important; }
+html.light .border-outline { border-color: #adb5bd !important; }
+html.light [class*="border-white/"] { border-color: rgba(0, 0, 0, 0.06) !important; }
 
-html.light .bg-primary { background-color: #005bc4 !important; }
-html.light [class*="bg-primary/"] { background-color: rgba(0, 91, 196, 0.1) !important; }
+html.light .bg-primary { background-color: #2563eb !important; }
+html.light [class*="bg-primary/"] { background-color: rgba(37, 99, 235, 0.08) !important; }
 
 html.light .hero-gradient {
   background:
-    radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 55%),
-    radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 60% 80%, rgba(16, 185, 129, 0.06) 0%, transparent 50%);
+    radial-gradient(ellipse at 20% 50%, rgba(37, 99, 235, 0.06) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 20%, rgba(124, 58, 237, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 80%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
+}
+
+/* Light mode: hide heavy gradient blobs */
+html.light .gradient-blob-blue,
+html.light .gradient-blob-purple,
+html.light .gradient-blob-emerald,
+html.light .gradient-blob-pink {
+  opacity: 0.15;
 }

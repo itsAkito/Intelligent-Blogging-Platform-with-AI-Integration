@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,55 +59,80 @@ export default function Home() {
   return (
     <>
       <Navbar />
-      <main className="min-h-screen text-on-background" style={{background: 'radial-gradient(ellipse at 15% 20%, rgba(59,130,246,0.18) 0%, transparent 48%), radial-gradient(ellipse at 85% 10%, rgba(139,92,246,0.16) 0%, transparent 45%), radial-gradient(ellipse at 50% 90%, rgba(16,185,129,0.14) 0%, transparent 50%), radial-gradient(ellipse at 90% 70%, rgba(236,72,153,0.10) 0%, transparent 40%), #0e0e0e'}}>
+      <main className="min-h-screen text-on-background bg-background hero-gradient">
         {/* Hero Section */}
         <section className="relative min-h-[90vh] flex flex-col items-center justify-center px-4 sm:px-8 pt-28 pb-20">
           <div className="absolute inset-0 -z-10 overflow-hidden">
-            <div className="absolute top-[46%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-150 h-150 bg-primary/10 rounded-full blur-[120px]"></div>
-            <div className="absolute top-24 left-[16%] w-72 h-72 rounded-full bg-emerald-500/12 blur-[100px]"></div>
-            <div className="absolute bottom-24 right-[14%] w-80 h-80 rounded-full bg-blue-500/14 blur-[110px]"></div>
-            <div className="absolute top-10 right-[8%] w-60 h-60 rounded-full bg-violet-500/10 blur-[90px]"></div>
-            <div className="absolute bottom-10 left-[8%] w-56 h-56 rounded-full bg-pink-500/08 blur-[90px]"></div>
-            {/* Subtle grid lines */}
-            <div className="absolute inset-0 opacity-[0.08]"
-              style={{ backgroundImage: "repeating-linear-gradient(0deg,transparent,transparent 48px,rgba(255,255,255,0.5) 48px,rgba(255,255,255,0.5) 49px),repeating-linear-gradient(90deg,transparent,transparent 48px,rgba(255,255,255,0.5) 48px,rgba(255,255,255,0.5) 49px)" }}
-            />
+            <div className="absolute top-[46%] left-[50%] -translate-x-1/2 -translate-y-1/2 w-150 h-150 gradient-blob-blue rounded-full"></div>
+            <div className="absolute top-24 left-[16%] w-72 h-72 rounded-full gradient-blob-emerald"></div>
+            <div className="absolute bottom-24 right-[14%] w-80 h-80 rounded-full gradient-blob-blue"></div>
           </div>
 
-          <div className="text-center max-w-4xl reveal-on-scroll">
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-surface-container-high/80 border border-outline-variant/20 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant mb-8">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 24, filter: "blur(8px)" }}
+            animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="text-center max-w-4xl"
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.5 }}
+              className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary/5 border border-primary/10 rounded-full text-[10px] font-bold uppercase tracking-[0.2em] text-primary mb-8"
+            >
               <span className="material-symbols-outlined text-xs text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
               AI-Powered Editorial
-            </div>
+            </motion.div>
 
-            <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-headline leading-[1.05] tracking-tighter mb-6">
+            <motion.h1
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+              className="text-5xl sm:text-6xl md:text-7xl font-extrabold font-headline leading-[1.05] tracking-tighter mb-6 text-on-surface"
+            >
               Elevate Your Blog and
               <br />
               <span className="text-gradient">Career with AI</span>
-            </h1>
+            </motion.h1>
 
-            <p className="text-base sm:text-lg text-on-surface-variant max-w-2xl mx-auto mb-10 leading-relaxed">
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+              className="text-base sm:text-lg text-on-surface-variant max-w-2xl mx-auto mb-10 leading-relaxed"
+            >
               A premium digital ecosystem where generative intelligence meets professional journalism. Redefining how the world creates, learns, and builds careers.
-            </p>
+            </motion.p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button asChild className="px-8 py-3.5 h-auto bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-bold rounded-xl shadow-lg shadow-primary/20 hover:scale-[1.02] transition-all">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+              className="flex flex-col sm:flex-row gap-4 justify-center"
+            >
+              <Button asChild className="px-8 py-3.5 h-auto bg-primary text-white font-bold rounded-xl shadow-lg hover:bg-primary/90 hover:shadow-xl transition-all">
                 <Link href={mounted && isAuthenticated ? "/pricing" : "/auth?next=%2Fpricing"}>Get Started Free</Link>
               </Button>
-              <Button asChild variant="outline" className="px-8 py-3.5 h-auto font-bold rounded-xl">
+              <Button asChild variant="outline" className="px-8 py-3.5 h-auto font-bold rounded-xl border-on-surface-variant/20 hover:bg-primary/5">
                 <Link href="/community">Join Community</Link>
               </Button>
-            </div>
+            </motion.div>
 
             {/* Search Bar */}
-            <form onSubmit={handleSearch} className="mt-12 max-w-xl mx-auto w-full">
+            <motion.form
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 0.5 }}
+              onSubmit={handleSearch}
+              className="mt-12 max-w-xl mx-auto w-full"
+            >
               <div className="relative group">
                 {/* Outer animated glow */}
                 <div className="absolute -inset-1 bg-linear-to-r from-primary via-secondary to-tertiary rounded-full opacity-0 group-hover:opacity-30 group-focus-within:opacity-50 blur-lg transition-all duration-700"></div>
                 {/* Inner border glow */}
                 <div className="absolute -inset-px bg-linear-to-r from-primary/40 via-secondary/30 to-tertiary/40 rounded-full opacity-0 group-focus-within:opacity-100 transition-opacity duration-400"></div>
                 {/* Search pill */}
-                <div className="relative flex items-center bg-surface-container-high/80 backdrop-blur-xl border border-outline-variant/15 rounded-full overflow-hidden focus-within:border-transparent transition-all duration-300 shadow-xl shadow-black/20 hover:shadow-2xl hover:shadow-primary/10">
+                <div className="relative flex items-center bg-white dark:bg-surface-container-high/80 backdrop-blur-xl border border-black/5 dark:border-outline-variant/15 rounded-full overflow-hidden focus-within:border-primary/30 transition-all duration-300 shadow-lg hover:shadow-xl">
                   <div className="pl-5 pr-1 flex items-center">
                     <span className="material-symbols-outlined text-on-surface-variant/40 text-xl group-focus-within:text-primary group-focus-within:scale-110 transition-all duration-300" style={{ fontVariationSettings: "'FILL' 1" }}>search</span>
                   </div>
@@ -120,7 +146,7 @@ export default function Home() {
                   <Button
                     type="submit"
                     aria-label="Search"
-                    className="mr-1.5 px-3 py-2.5 h-auto bg-linear-to-r from-primary to-primary-container text-on-primary-fixed font-extrabold text-xs rounded-full hover:shadow-lg hover:shadow-primary/30 hover:scale-105 active:scale-95 transition-all duration-200"
+                    className="mr-1.5 px-3 py-2.5 h-auto bg-primary text-white font-extrabold text-xs rounded-full hover:bg-primary/90 hover:shadow-lg active:scale-95 transition-all duration-200"
                   >
                     <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                   </Button>
@@ -140,18 +166,23 @@ export default function Home() {
                   </Badge>
                 ))}
               </div>
-            </form>
-          </div>
+            </motion.form>
+          </motion.div>
 
           {/* Stats Grid */}
-          <div className="w-full max-w-5xl grid grid-cols-2 lg:grid-cols-4 gap-4 px-2 mt-16 reveal-on-scroll">
+          <motion.div
+            initial={{ opacity: 0, y: 32 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full max-w-5xl grid grid-cols-2 lg:grid-cols-4 gap-4 px-2 mt-16"
+          >
             {[
-              { value: publicStats?.display.activeCreators || "0", label: "Active Creators", gradient: "from-blue-500/20 to-cyan-500/10", border: "hover:border-blue-500/40", glow: "hover:shadow-blue-500/15" },
-              { value: publicStats?.display.syntheticPosts || "0", label: "Published Posts", gradient: "from-violet-500/20 to-purple-500/10", border: "hover:border-violet-500/40", glow: "hover:shadow-violet-500/15" },
-              { value: publicStats?.display.monthlyReads || "0", label: "Monthly Reads", gradient: "from-emerald-500/20 to-teal-500/10", border: "hover:border-emerald-500/40", glow: "hover:shadow-emerald-500/15" },
-              { value: publicStats?.display.industryMentors || "0", label: "Industry Mentors", gradient: "from-pink-500/20 to-rose-500/10", border: "hover:border-pink-500/40", glow: "hover:shadow-pink-500/15" },
+              { value: publicStats?.display.activeCreators || "0", label: "Active Creators", gradient: "from-blue-500/10 to-cyan-500/5", border: "hover:border-primary/30", glow: "hover:shadow-primary/10" },
+              { value: publicStats?.display.syntheticPosts || "0", label: "Published Posts", gradient: "from-violet-500/10 to-purple-500/5", border: "hover:border-violet-500/30", glow: "hover:shadow-violet-500/10" },
+              { value: publicStats?.display.monthlyReads || "0", label: "Monthly Reads", gradient: "from-emerald-500/10 to-teal-500/5", border: "hover:border-emerald-500/30", glow: "hover:shadow-emerald-500/10" },
+              { value: publicStats?.display.industryMentors || "0", label: "Industry Mentors", gradient: "from-pink-500/10 to-rose-500/5", border: "hover:border-pink-500/30", glow: "hover:shadow-pink-500/10" },
             ].map((stat) => (
-              <Card key={stat.label} className={`relative overflow-hidden backdrop-blur-xl border border-white/10 text-center ${stat.border} hover:bg-white/8 transition-all duration-300 group shadow-lg shadow-black/20 hover:shadow-xl ${stat.glow} hover:-translate-y-0.5`}>
+              <Card key={stat.label} className={`relative overflow-hidden backdrop-blur-xl border border-black/5 dark:border-white/10 text-center ${stat.border} hover:bg-primary/5 transition-all duration-300 group shadow-sm hover:shadow-lg ${stat.glow} hover:-translate-y-0.5`}>
                 <div className={`absolute inset-0 bg-linear-to-br ${stat.gradient} opacity-60`} />
                 <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/20 to-transparent" />
                 <CardContent className="relative p-6">
@@ -160,7 +191,7 @@ export default function Home() {
                 </CardContent>
               </Card>
             ))}
-          </div>
+          </motion.div>
         </section>
 
         {/* Featured Stories */}
@@ -282,20 +313,20 @@ export default function Home() {
         {mounted && isAuthenticated && (
           <div className="px-4 sm:px-8 pb-6">
             <div className="max-w-7xl mx-auto">
-              <div className="rounded-2xl border border-white/8 overflow-hidden" style={{background: 'linear-gradient(135deg, rgba(59,130,246,0.12) 0%, rgba(139,92,246,0.10) 50%, rgba(16,185,129,0.08) 100%)'}}>
+              <div className="rounded-2xl border border-black/5 dark:border-white/8 overflow-hidden bg-primary/5 dark:bg-white/[0.03]">
                 <div className="px-6 py-4 flex flex-wrap items-center gap-6">
                   <span className="text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">Your Library</span>
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-blue-400 text-[18px]" style={{fontVariationSettings:"'FILL' 1"}}>article</span>
-                    <span className="text-sm font-bold text-white">{totalPostCount != null ? totalPostCount : featuredPosts.length > 0 ? `${featuredPosts.length}+` : "—"} Blog Posts</span>
+                    <span className="material-symbols-outlined text-blue-500 text-[18px]" style={{fontVariationSettings:"'FILL' 1"}}>article</span>
+                    <span className="text-sm font-bold text-on-surface">{totalPostCount != null ? totalPostCount : featuredPosts.length > 0 ? `${featuredPosts.length}+` : "—"} Blog Posts</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-emerald-400 text-[18px]" style={{fontVariationSettings:"'FILL' 1"}}>science</span>
-                    <span className="text-sm font-bold text-white">{researchFeed.length} Research Papers</span>
+                    <span className="material-symbols-outlined text-emerald-500 text-[18px]" style={{fontVariationSettings:"'FILL' 1"}}>science</span>
+                    <span className="text-sm font-bold text-on-surface">{researchFeed.length} Research Papers</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-violet-400 text-[18px]" style={{fontVariationSettings:"'FILL' 1"}}>newspaper</span>
-                    <span className="text-sm font-bold text-white">Live News Feed</span>
+                    <span className="material-symbols-outlined text-violet-500 text-[18px]" style={{fontVariationSettings:"'FILL' 1"}}>newspaper</span>
+                    <span className="text-sm font-bold text-on-surface">Live News Feed</span>
                   </div>
                   <div className="ml-auto flex gap-3">
                     <Button asChild size="sm" variant="ghost" className="text-blue-400 hover:text-blue-300 text-xs">
@@ -315,7 +346,7 @@ export default function Home() {
         <section className="px-4 sm:px-8 pb-10">
           <div className="max-w-7xl mx-auto">
             <div
-              className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 sm:p-8"
+              className="relative overflow-hidden rounded-3xl border border-black/5 dark:border-white/10 bg-primary/[0.02] dark:bg-white/[0.03] backdrop-blur-sm p-6 sm:p-8"
             >
               <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-primary/8 blur-3xl" />
               <div className="absolute inset-x-10 top-[46%] h-24 -translate-y-1/2 rounded-full bg-white/5 blur-2xl" />
@@ -325,7 +356,7 @@ export default function Home() {
                 <span className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] text-on-surface-variant">
                   Live Discovery Deck
                 </span>
-                <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tighter text-white">
+                <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tighter text-on-surface">
                   World Research, News, And Forum Momentum
                 </h2>
                 <p className="mt-2 max-w-3xl text-sm text-on-surface-variant/75">
@@ -333,7 +364,7 @@ export default function Home() {
                 </p>
 
                 <div className="mt-7 grid grid-cols-1 xl:grid-cols-12 gap-4">
-                  <div className="xl:col-span-4 rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur">
+                  <div className="xl:col-span-4 rounded-2xl border border-black/5 dark:border-white/10 bg-primary/[0.03] dark:bg-white/[0.04] p-5 backdrop-blur">
                     <p className="text-xs font-semibold text-primary">Quick Access</p>
                     <div className="mt-4 grid gap-3">
                       {[
@@ -344,13 +375,13 @@ export default function Home() {
                         <Link
                           key={card.title}
                           href={card.href}
-                          className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 hover:border-primary/40 hover:bg-white/[0.06] transition-all"
+                          className="group relative overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-primary/[0.02] dark:bg-white/[0.04] px-4 py-3 hover:border-primary/40 hover:bg-primary/5 transition-all"
                         >
                           <div className="absolute inset-0 bg-linear-to-r from-primary/15 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                           <div className="relative flex items-start gap-3">
                             <span className="material-symbols-outlined text-primary text-[18px] mt-0.5">{card.icon}</span>
                             <div>
-                              <p className="text-sm font-bold text-white">{card.title}</p>
+                              <p className="text-sm font-bold text-on-surface">{card.title}</p>
                               <p className="text-[11px] text-on-surface-variant/80">{card.count} cards live now</p>
                               <p className="text-[11px] text-on-surface-variant/60 mt-1">{card.hint}</p>
                             </div>
@@ -365,11 +396,11 @@ export default function Home() {
                       <Link
                         key={`research-${item.id}`}
                         href={`/innovation?tab=research&story=${encodeURIComponent(item.id)}`}
-                        className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-4 hover:border-primary/40 transition-all"
+                        className="group relative overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-primary/[0.02] dark:bg-white/[0.03] p-4 hover:border-primary/40 transition-all"
                       >
                         <div className="absolute inset-0 bg-linear-to-br from-primary/15 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         <p className="relative text-[10px] uppercase tracking-[0.16em] text-primary font-semibold">Research</p>
-                        <h3 className="relative mt-2 text-sm font-bold text-white line-clamp-2">{item.title}</h3>
+                        <h3 className="relative mt-2 text-sm font-bold text-on-surface line-clamp-2">{item.title}</h3>
                         <p className="relative mt-2 text-xs text-on-surface-variant/80 line-clamp-2">{item.summary}</p>
                         <div className="relative mt-2 flex items-center gap-2 text-[10px] text-on-surface-variant/60">
                           {item.sourceName && <span className="truncate max-w-30">{item.sourceName}</span>}
@@ -385,11 +416,11 @@ export default function Home() {
                         href={item.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-4 hover:border-secondary/35 transition-all"
+                        className="group relative overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-primary/[0.02] dark:bg-white/[0.03] p-4 hover:border-secondary/35 transition-all"
                       >
                         <div className="absolute inset-0 bg-linear-to-br from-white/8 via-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         <p className="relative text-[10px] uppercase tracking-[0.16em] text-secondary font-semibold">World News</p>
-                        <h3 className="relative mt-2 text-sm font-bold text-white line-clamp-2">{item.title}</h3>
+                        <h3 className="relative mt-2 text-sm font-bold text-on-surface line-clamp-2">{item.title}</h3>
                         <p className="relative mt-2 text-xs text-on-surface-variant/80 line-clamp-2">{item.summary}</p>
                         <div className="relative mt-2 flex items-center gap-2 text-[10px] text-on-surface-variant/60">
                           {item.sourceName && <span className="truncate max-w-30">{item.sourceName}</span>}
@@ -403,14 +434,14 @@ export default function Home() {
                       <Link
                         key={`forum-${topic.id}`}
                         href={`/forum/topic/${topic.id}`}
-                        className="group relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-4 hover:border-tertiary/35 transition-all"
+                        className="group relative overflow-hidden rounded-xl border border-black/5 dark:border-white/10 bg-primary/[0.02] dark:bg-white/[0.03] p-4 hover:border-tertiary/35 transition-all"
                       >
                         <div className="absolute inset-0 bg-linear-to-br from-tertiary/12 via-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         <p className="relative text-[10px] uppercase tracking-[0.16em] text-tertiary font-semibold flex items-center gap-1">
                           {topic.forum_categories?.icon && <span className="material-symbols-outlined text-[12px]">{topic.forum_categories.icon}</span>}
                           {topic.forum_categories?.name || "Forum Topic"}
                         </p>
-                        <h3 className="relative mt-2 text-sm font-bold text-white line-clamp-2">{topic.title}</h3>
+                        <h3 className="relative mt-2 text-sm font-bold text-on-surface line-clamp-2">{topic.title}</h3>
                         <p className="relative mt-2 text-xs text-on-surface-variant/80">
                           {topic.reply_count} replies • {topic.like_count} likes
                         </p>
@@ -426,19 +457,19 @@ export default function Home() {
         {/* Blog Theme Showcase */}
         <section className="py-20 px-4 sm:px-8">
           <div className="max-w-7xl mx-auto reveal-on-scroll">
-              <div className="relative overflow-hidden border border-white/10 bg-white/[0.03] backdrop-blur-sm p-6 sm:p-10">
+              <div className="relative overflow-hidden border border-black/5 dark:border-white/10 bg-primary/[0.02] dark:bg-white/[0.03] backdrop-blur-sm p-6 sm:p-10 rounded-2xl">
               <div className="absolute -top-20 right-8 w-64 h-64 rounded-full bg-primary/6 blur-3xl" />
               <div className="absolute -bottom-16 left-16 w-56 h-56 rounded-full bg-secondary/5 blur-3xl" />
 
               <div className="relative flex items-center justify-between gap-4 flex-wrap mb-8">
                 <div>
                   <span className="text-[10px] font-bold tracking-[0.25em] text-on-surface-variant uppercase block mb-2">Theme Gallery</span>
-                  <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tighter text-white">340+ Blog Themes Across 30 Categories</h2>
+                  <h2 className="text-3xl sm:text-4xl font-extrabold font-headline tracking-tighter text-on-surface">340+ Blog Themes Across 30 Categories</h2>
                   <p className="text-sm text-on-surface-variant/70 mt-2 max-w-2xl">
                     Professional editorial palettes for every niche — from business to photography, code to culinary. Pick a theme and start writing instantly.
                   </p>
                 </div>
-                <Button asChild variant="outline" className="border-white/20 text-on-surface-variant hover:bg-white/10">
+                <Button asChild variant="outline" className="border-on-surface-variant/20 text-on-surface-variant hover:bg-primary/5">
                   <Link href="/blog-themes">View All Themes →</Link>
                 </Button>
               </div>
@@ -525,7 +556,7 @@ export default function Home() {
                       <span className="material-symbols-outlined text-primary text-lg">groups</span>
                     </div>
                     <div>
-                      <h4 className="font-bold text-white mb-1">Elite Peer Network</h4>
+                      <h4 className="font-bold text-on-surface mb-1">Elite Peer Network</h4>
                       <p className="text-sm text-on-surface-variant">Connect with senior editors and tech leads from the world&apos;s top firms.</p>
                     </div>
                   </div>
@@ -535,7 +566,7 @@ export default function Home() {
                       <span className="material-symbols-outlined text-secondary text-lg">auto_awesome</span>
                     </div>
                     <div>
-                      <h4 className="font-bold text-white mb-1">AI-Powered Career Tracks</h4>
+                      <h4 className="font-bold text-on-surface mb-1">AI-Powered Career Tracks</h4>
                       <p className="text-sm text-on-surface-variant">Personalized roadmaps generated from your writing style and audience engagement.</p>
                     </div>
                   </div>
@@ -563,7 +594,7 @@ export default function Home() {
                       <AvatarFallback className="rounded-lg">CM</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h4 className="font-bold text-white">{recentReviews[0]?.author?.name || "Community Member"}</h4>
+                      <h4 className="font-bold text-on-surface">{recentReviews[0]?.author?.name || "Community Member"}</h4>
                       <p className="text-[10px] uppercase tracking-widest text-primary">Verified Community Review</p>
                     </div>
                   </div>
@@ -593,7 +624,7 @@ export default function Home() {
                     >
                       <CardContent className="p-5">
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs font-semibold text-white">{review.author?.name || 'Community Member'}</p>
+                          <p className="text-xs font-semibold text-on-surface">{review.author?.name || 'Community Member'}</p>
                           <Badge variant="outline" className="text-[10px] border-amber-400/30 text-amber-300">{'★'.repeat(Math.max(1, Math.min(5, review.rating || 1)))}</Badge>
                         </div>
                         <p className="text-sm text-on-surface-variant line-clamp-3">{review.comment}</p>
