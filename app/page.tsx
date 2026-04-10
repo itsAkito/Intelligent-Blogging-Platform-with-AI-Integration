@@ -578,11 +578,7 @@ export default function Home() {
 
               {/* Dynamic community review cards with curved/tilted layout */}
               <Card
-                className="relative overflow-hidden glass-card border-outline-variant/10"
-                style={{
-                  borderRadius: "56% 44% 52% 48% / 26% 32% 68% 74%",
-                  transform: "rotate(-1.4deg)",
-                }}
+                className="relative overflow-hidden glass-card border-outline-variant/10 rounded-2xl"
               >
                 <div className="absolute -top-8 right-6 h-28 w-28 rounded-full bg-emerald-400/10 blur-2xl" />
                 <div className="absolute -bottom-10 left-6 h-28 w-28 rounded-full bg-blue-400/10 blur-2xl" />
@@ -615,11 +611,7 @@ export default function Home() {
                   {recentReviews.slice(1, 3).map((review) => (
                     <Card
                       key={review.id}
-                      className="glass-card border-outline-variant/10 transition-transform"
-                      style={{
-                        borderRadius: "22% 78% 30% 70% / 63% 31% 69% 37%",
-                        transform: review.id === recentReviews[1]?.id ? "rotate(1.6deg)" : "rotate(-1.1deg)",
-                      }}
+                      className="glass-card border-outline-variant/10 rounded-2xl transition-transform"
                     >
                       <CardContent className="p-5">
                         <div className="flex items-center justify-between mb-2">
