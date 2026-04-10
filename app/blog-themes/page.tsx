@@ -90,7 +90,7 @@ function BlogPreviewCard({ tmpl, categoryLabel, variant = "classic" }: { tmpl: B
           <h3 className="text-sm font-bold leading-tight" style={{ color: p.heading }}>{tmpl.sampleTitle || tmpl.name}</h3>
           <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
           <div className="flex items-center gap-2">
-            <div className="h-[1px] flex-1" style={{ background: `linear-gradient(to right, ${p.accent}60, transparent)` }} />
+            <div className="h-px flex-1" style={{ background: `linear-gradient(to right, ${p.accent}60, transparent)` }} />
             <span className="text-[9px]" style={{ color: p.muted }}>4 min</span>
           </div>
         </div>
@@ -162,7 +162,7 @@ function BlogPreviewCard({ tmpl, categoryLabel, variant = "classic" }: { tmpl: B
           <h3 className="text-xl font-bold leading-tight italic" style={{ color: p.heading }}>{tmpl.sampleTitle || tmpl.name}</h3>
           <p className="text-xs leading-relaxed line-clamp-3" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
           <div className="flex items-center gap-3 pt-2">
-            <div className="w-8 h-[2px]" style={{ backgroundColor: p.accent }} />
+            <div className="w-8 h-0.5" style={{ backgroundColor: p.accent }} />
             <span className="text-[9px] italic" style={{ color: p.muted }}>4 min read</span>
           </div>
         </div>
@@ -252,7 +252,7 @@ function BlogPreviewCard({ tmpl, categoryLabel, variant = "classic" }: { tmpl: B
           <p className="text-[11px] leading-relaxed line-clamp-2 italic" style={{ color: p.text }}>{tmpl.sampleExcerpt || tmpl.description}</p>
           <div className="flex items-center gap-3 pt-1">
             <span className="text-[10px]" style={{ color: p.accent }}>✈</span>
-            <div className="h-[1px] flex-1" style={{ backgroundColor: `${p.muted}30`, backgroundImage: `repeating-linear-gradient(90deg, ${p.muted}40 0, ${p.muted}40 4px, transparent 4px, transparent 8px)` }} />
+            <div className="h-px flex-1" style={{ backgroundColor: `${p.muted}30`, backgroundImage: `repeating-linear-gradient(90deg, ${p.muted}40 0, ${p.muted}40 4px, transparent 4px, transparent 8px)` }} />
             <span className="text-[9px]" style={{ color: p.muted }}>4 min</span>
           </div>
         </div>
@@ -584,7 +584,7 @@ export default function BlogThemesPage() {
               From blank canvas to <span className="italic bg-linear-to-r from-amber-300/90 to-violet-400/70 bg-clip-text text-transparent">published masterpiece</span>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-0 relative">
-              <div className="hidden md:block absolute top-10 left-[16.6%] right-[16.6%] h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+              <div className="hidden md:block absolute top-10 left-[16.6%] right-[16.6%] h-px bg-linear-to-r from-transparent via-white/15 to-transparent" />
               {[
                 { step: "01", icon: "palette", title: "Pick Your Identity", desc: "Every category has its own typography, color palette, and card layout — designed for specific content styles. Business blogs feel authoritative; tech blogs feel precise; travel blogs feel adventurous." },
                 { step: "02", icon: "edit_note", title: "Write With Style", desc: "Your chosen theme wraps around your words instantly — headings, code blocks, quotes, and images all adapt. What you see in preview is exactly what your readers experience." },

@@ -122,7 +122,7 @@ export default function SideNavBar({ activePage = "home" }: SideNavBarProps) {
         <Link
           key={item.id}
           href={item.href}
-          className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-lg transition-colors min-w-[3rem] ${
+          className={`flex flex-col items-center gap-0.5 px-2 py-2 rounded-lg transition-colors min-w-12 ${
             activePage === item.id
               ? "text-primary"
               : "text-on-surface-variant hover:text-on-surface"

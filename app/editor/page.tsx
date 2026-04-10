@@ -949,7 +949,7 @@ function EditorContent() {
           </div>
 
           {/* WordPress Add Media / Visual|Text bar */}
-          <div className="sticky top-[calc(64px+46px)] z-40 flex items-center justify-between gap-2 border-b border-white/10 bg-[#23282d] px-4 py-2">
+          <div className="sticky top-27.5 z-40 flex items-center justify-between gap-2 border-b border-white/10 bg-[#23282d] px-4 py-2">
             <div className="flex flex-wrap items-center gap-1.5">
               <label className="flex cursor-pointer items-center gap-1.5 rounded border border-white/15 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/10 hover:text-white transition-colors">
                 <span className="material-symbols-outlined text-[15px] text-blue-400">add_photo_alternate</span>
